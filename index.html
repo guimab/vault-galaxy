@@ -865,6 +865,7 @@ const DEVICE = (() => {
   return d;
 })();
 let prefsVersion = -1, prefsTimer = 0, prefsUltimoToque = 0, avisoTimer = 0;
+const tinhaLocal = !!localStorage.getItem('vg.cfg');   // já havia ajuste salvo neste aparelho
 
 const estadoAtual = () => ({ device: DEVICE, cfg, hidden: [...hidden], showOrph: state.showOrph, showGhost: state.showGhost, autoRotate: $('oRot').checked });
 
@@ -908,7 +909,10 @@ async function prefsPull() {
     const primeira = prefsVersion < 0;                     // primeira leitura desta aba
     prefsVersion = d.version;
     if (d.device === DEVICE && !primeira) return;          // fui eu que acabei de gravar
-    if (primeira && !d.version) return prefsPush();        // servidor vazio: semeia com o local
+    // Servidor vazio: quem semeia é um aparelho que JÁ tem ajuste salvo. Um aparelho
+    // novo (ou recém-limpo) não pode reivindicar o servidor com os padrões, senão
+    // apagaria o ajuste fino feito no desktop.
+    if (primeira && !d.version) return tinhaLocal ? prefsPush() : undefined;
     if (!primeira && performance.now() - prefsUltimoToque < 3000) return;   // não atropela quem está mexendo
     prefsAplicar(d);
   } catch { /* offline ou site estático: segue o localStorage */ }
