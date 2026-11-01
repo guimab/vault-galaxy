@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vault Galaxy</title>
+<style>
+  :root { --bg:#03040b; --panel:rgba(12,16,32,.78); --line:rgba(140,170,255,.18); --txt:#dfe6ff; --mut:#8c97bd; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--txt); font:14px/1.45 -apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif; overflow:hidden; }
+  #c { position:fixed; inset:0; }
+  .glass { background:var(--panel); border:1px solid var(--line); border-radius:14px; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); box-shadow:0 10px 40px rgba(0,0,0,.45); }
+  #top { position:fixed; top:16px; left:16px; display:flex; gap:10px; align-items:center; z-index:5; }
+  #brand { padding:10px 14px; font-weight:700; letter-spacing:.06em; }
+  #brand small { display:block; font-weight:400; color:var(--mut); letter-spacing:0; font-size:12px; }
+  #searchBox { position:relative; }
+  #search { width:320px; padding:12px 14px; color:var(--txt); background:var(--panel); border:1px solid var(--line); border-radius:12px; outline:none; font-size:14px; }
+  #search:focus { border-color:rgba(120,180,255,.6); box-shadow:0 0 0 3px rgba(90,150,255,.18); }
+  #sugg { position:absolute; top:48px; left:0; width:420px; max-height:50vh; overflow:auto; display:none; padding:6px; }
+  #sugg div { padding:7px 10px; border-radius:8px; cursor:pointer; display:flex; gap:8px; align-items:center; }
+  #sugg div:hover, #sugg div.on { background:rgba(120,160,255,.14); }
+  .dot { width:9px; height:9px; border-radius:50%; flex:none; box-shadow:0 0 8px currentColor; }
+  #legend { position:fixed; left:16px; bottom:16px; padding:12px; z-index:5; min-width:230px; }
+  #legend h4, #panel h4 { margin:0 0 8px; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--mut); font-weight:600; }
+  .lg { display:flex; align-items:center; gap:9px; padding:4px 6px; border-radius:7px; cursor:pointer; user-select:none; }
+  .lg:hover { background:rgba(255,255,255,.06); }
+  .lg.off { opacity:.35; }
+  .lg span.n { margin-left:auto; color:var(--mut); font-variant-numeric:tabular-nums; }
+  #opts { margin-top:8px; padding-top:8px; border-top:1px solid var(--line); display:grid; gap:4px; color:var(--mut); font-size:13px; }
+  #opts label { display:flex; gap:8px; align-items:center; cursor:pointer; }
+  #panel { position:fixed; top:16px; right:16px; width:380px; max-height:calc(100% - 32px); overflow:auto; padding:18px; z-index:5; transform:translateX(420px); transition:transform .35s cubic-bezier(.2,.8,.2,1); }
+  #panel.open { transform:none; }
+  #panel h2 { margin:0 0 4px; font-size:20px; line-height:1.25; }
+  #panel .path { color:var(--mut); font-size:12px; margin-bottom:12px; word-break:break-word; }
+  #panel .stats { display:flex; gap:8px; margin:10px 0 14px; }
+  #panel .stat { flex:1; padding:8px; border-radius:10px; background:rgba(255,255,255,.04); text-align:center; }
+  #panel .stat b { display:block; font-size:18px; }
+  #panel .stat span { font-size:11px; color:var(--mut); }
+  #panel .ex { color:#c4cbe6; font-size:13px; margin:0 0 14px; }
+  .tags { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+  .tag { padding:2px 8px; border-radius:999px; font-size:12px; background:rgba(150,120,255,.15); color:#cbbcff; cursor:pointer; }
+  .tag:hover { background:rgba(150,120,255,.3); }
+  .lst { display:grid; gap:2px; margin-bottom:14px; }
+  .lst div { padding:5px 8px; border-radius:7px; cursor:pointer; display:flex; gap:8px; align-items:center; font-size:13px; }
+  .lst div:hover { background:rgba(255,255,255,.07); }
+  .lst .arrow { color:var(--mut); width:14px; }
+  .btn { display:inline-flex; gap:6px; align-items:center; padding:9px 12px; border-radius:10px; border:1px solid rgba(140,120,255,.5); background:linear-gradient(135deg,rgba(124,92,255,.35),rgba(60,140,255,.25)); color:#fff; text-decoration:none; font-weight:600; cursor:pointer; }
+  .close { position:absolute; top:12px; right:12px; background:none; border:0; color:var(--mut); font-size:20px; cursor:pointer; }
+  #tip { position:fixed; pointer-events:none; padding:6px 10px; border-radius:8px; font-size:13px; z-index:6; display:none; white-space:nowrap; }
+  #tip small { color:var(--mut); margin-left:6px; }
+  #help { position:fixed; right:16px; bottom:16px; padding:10px 14px; color:var(--mut); font-size:12px; z-index:4; }
+  #help b { color:var(--txt); font-weight:600; }
+  .tog { background:none; border:0; color:var(--mut); cursor:pointer; font-size:13px; padding:0 0 0 8px; line-height:1; }
+  .tog:hover { color:var(--txt); }
+  #legend h4 { display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; }
+  #legend.min #groups, #legend.min #opts { display:none; }
+  #legend.min { min-width:0; } #legend.min h4 { margin:0; }
+  #help.min { padding:6px 10px; cursor:pointer; } #help.min .txt { display:none; }
+  #help:not(.min) .q { display:none; }
+  .lbl { color:#fff; font-size:12px; padding:2px 7px; border-radius:6px; background:rgba(5,8,20,.55); white-space:nowrap; pointer-events:none; text-shadow:0 0 6px rgba(0,0,0,.9); transform:translateY(-14px); }
+  .lbl { animation:lblIn .45s ease-out; }
+  @keyframes lblIn { from { opacity:0; } }
+  .lbl.grp { font-size:15px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; background:none; opacity:.95; pointer-events:auto; cursor:pointer; transition:opacity .2s; text-shadow:calc(var(--o)*3px) 0 0 #000, 0 0 calc(var(--o)*3px) #000, 0 0 calc(var(--o)*6px) #000, 0 1px calc(var(--o)*2px) #000; }
+  .lbl.grp:hover, .lbl.grp.pin { opacity:1; text-shadow:0 0 calc(var(--o)*3px) #000, 0 0 calc(var(--o)*8px) #000, 0 0 calc(var(--o)*14px) currentColor, 0 1px calc(var(--o)*2px) #000; }
+  .lbl.grp.pin::after { content:' 📌'; font-size:12px; }
+  .lbl.hot { background:rgba(40,60,140,.75); font-weight:600; }
+  #cfgBtn { position:fixed; top:16px; right:16px; z-index:6; width:44px; height:44px; font-size:20px; color:var(--txt); cursor:pointer; }
+  
+  #cfg { position:fixed; top:70px; right:16px; width:300px; max-height:calc(100% - 140px); overflow:auto; padding:14px 16px; z-index:6; display:none; }
+  body.cfgOpen #cfg { display:block; }
+  body.cfgOpen #panel { top:70px; max-height:calc(100% - 86px); right:332px; }
+  body.cfgOpen #panel:not(.open) { transform:translateX(760px); }
+  #cfg h4 { margin:12px 0 6px; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--mut); }
+  #cfg h4:first-child { margin-top:0; }
+  .sl { display:grid; grid-template-columns:1fr auto; gap:2px 8px; margin:7px 0; font-size:12.5px; }
+  .sl output { color:var(--mut); font-variant-numeric:tabular-nums; }
+  .sl input { grid-column:1/3; width:100%; accent-color:#7c5cff; }
+  .cl { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:5px 0; font-size:12.5px; }
+  .cl input[type=color] { width:42px; height:24px; border:1px solid var(--line); border-radius:6px; background:none; padding:0; cursor:pointer; }
+  .row { display:flex; gap:8px; margin-top:12px; }
+  .row .btn { flex:1; justify-content:center; font-size:12.5px; padding:7px; }
+  #loading { position:fixed; inset:0; display:grid; place-items:center; z-index:10; background:var(--bg); color:var(--mut); letter-spacing:.2em; transition:opacity .6s; }
+</style>
+</head>
+<body>
+<div id="loading">CARREGANDO GALÁXIA…</div>
+<div id="c"></div>
+
+<div id="top">
+  <div id="brand" class="glass">VAULT GALAXY<small id="meta">—</small></div>
+  <div id="searchBox">
+    <input id="search" placeholder="Buscar nota ou #tag…  ( / )" autocomplete="off">
+    <div id="sugg" class="glass"></div>
+  </div>
+</div>
+
+<div id="legend" class="glass">
+  <h4 id="legHead" title="Esconder/mostrar (tecla L)">Pastas <button class="tog" id="legTog">▾</button></h4>
+  <div id="groups"></div>
+  <div id="opts">
+    <label><input type="checkbox" id="oOrph" checked> Notas sem ligação</label>
+    <label><input type="checkbox" id="oGhost" checked> Links para notas inexistentes</label>
+    <label><input type="checkbox" id="oRot" checked> Rotação automática</label>
+  </div>
+</div>
+
+<div id="panel" class="glass"><button class="close" id="pClose">×</button><div id="pBody"></div></div>
+<div id="tip" class="glass"></div>
+<button id="cfgBtn" class="glass" title="Controles (tecla G)">⚙</button>
+<div id="cfg" class="glass"></div>
+<div id="help" class="glass" title="Esconder/mostrar (tecla H)"><span class="q">? dicas</span><span class="txt"><b>Clique</b> foca a nota · <b>arrastar</b> gira · <b>scroll</b> zoom · <b>Esc</b> limpa · <b>/</b> busca · <b>L</b> pastas · <b>H</b> dicas · <b>G</b> controles <button class="tog" id="helpTog">×</button></span></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+  "d3-force-3d": "https://esm.sh/d3-force-3d@3.0.5"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
+import { forceSimulation, forceLink, forceManyBody, forceX, forceY, forceZ, forceCollide } from 'd3-force-3d';
+
+const $ = (id) => document.getElementById(id);
+const PALETTE = ['#4cc9ff', '#ff4fd8', '#ffd23f', '#5cff9d', '#ff7a45', '#a78bfa', '#2ee6d6', '#ff5c7a', '#9dff4f', '#ffa8e2', '#7aa2ff'];
+const VAULT_NAME = 'bina_vault';
+
+// ---------- dados ----------
+const data = await (await fetch('data/graph.json?t=' + Date.now())).json();
+const nodes = data.nodes, links = data.links;
+const byId = new Map(nodes.map((n, i) => (n.i = i, n.out = [], n.inn = [], [n.id, n])));
+for (const l of links) { byId.get(l.source).out.push(l.target); byId.get(l.target).inn.push(l.source); }
+for (const n of nodes) n.deg = n.out.length + n.inn.length;
+
+const groupNames = [...new Set(nodes.map(n => n.group))]
+  .sort((a, b) => nodes.filter(n => n.group === b).length - nodes.filter(n => n.group === a).length);
+const groupColor = {};
+groupNames.forEach((g, i) => groupColor[g] = g === '(não criada)' ? '#6b7280' : PALETTE[i % PALETTE.length]);
+const DEFAULT_GROUP_COLOR = { ...groupColor };
+const hidden = new Set();
+$('meta').textContent = `${data.vault} · ${nodes.filter(n => !n.ghost).length} notas · ${links.length} ligações`;
+
+// ---------- controles (persistidos no navegador) ----------
+const CFG_DEF = {
+  bright: 1.25, glow: 1, size: 1, bloom: 0.85, links: 0.32, flowSpeed: 1, flowSize: 3.2, labels: 14, fade: 6, sun: 1, sunOn: 1, grpOutline: 1,
+  sunColor: '#ffb347', bgColor: '#03040b', outColor: '#38e1ff', inColor: '#ff4fd8', groupColors: {},
+  repel: 55, linkIn: 0.4, linkOut: 0.04, distIn: 30, distOut: 90, centri: 0.14, collide: 1, spread: 330,
+};
+const cfg = { ...CFG_DEF, ...JSON.parse(localStorage.getItem('vg.cfg') || '{}') };
+cfg.groupColors = { ...(cfg.groupColors || {}) };
+Object.assign(groupColor, cfg.groupColors);
+const saveCfg = () => localStorage.setItem('vg.cfg', JSON.stringify(cfg));
+
+// ---------- layout: forças com atração por pasta ----------
+const centers = {};
+groupNames.forEach((g, i) => {          // centros em espiral de Fibonacci numa esfera
+  const k = groupNames.length, y = 1 - (i + 0.5) / k * 2, r = Math.sqrt(1 - y * y), th = i * 2.39996;
+  centers[g] = new THREE.Vector3(Math.cos(th) * r, y * 0.6, Math.sin(th) * r);
+});
+const ctr = (d, k) => centers[d.group][k] * cfg.spread;
+const simLinks = links.map(l => ({ source: l.source, target: l.target }));
+const same = l => l.source.group === l.target.group;
+const sim = forceSimulation(nodes, 3).stop();
+function applyForces() {
+  sim.force('link', forceLink(simLinks).id(d => d.id).distance(l => same(l) ? cfg.distIn : cfg.distOut).strength(l => same(l) ? cfg.linkIn : cfg.linkOut))
+    .force('charge', forceManyBody().strength(-cfg.repel).distanceMax(500))
+    .force('collide', forceCollide(d => (5 + Math.sqrt(d.deg) * 1.6) * cfg.collide))
+    .force('x', forceX(d => ctr(d, 'x')).strength(cfg.centri))
+    .force('y', forceY(d => ctr(d, 'y')).strength(cfg.centri))
+    .force('z', forceZ(d => ctr(d, 'z')).strength(cfg.centri));
+}
+applyForces();
+for (let i = 0; i < 320; i++) sim.tick();
+sim.alpha(0.05);
+
+// ---------- cena ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+$('c').appendChild(renderer.domElement);
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(innerWidth, innerHeight);
+Object.assign(labelRenderer.domElement.style, { position: 'fixed', inset: '0', pointerEvents: 'none' });
+document.body.appendChild(labelRenderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(cfg.bgColor, 0.0011);
+scene.background = new THREE.Color(cfg.bgColor);
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 12, 12000);
+camera.position.set(0, 220, 820);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.06;
+controls.minDistance = 30; controls.maxDistance = 2200;
+controls.autoRotate = true; controls.autoRotateSpeed = 0.35;
+
+// poeira estelar de fundo
+{
+  const N = 6000, pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    const r = 1200 + Math.random() * 2600, t = Math.random() * Math.PI * 2, p = Math.acos(2 * Math.random() - 1);
+    pos.set([r * Math.sin(p) * Math.cos(t), r * Math.cos(p), r * Math.sin(p) * Math.sin(t)], i * 3);
+    const c = new THREE.Color().setHSL(0.55 + Math.random() * 0.25, 0.5, 0.55 + Math.random() * 0.4);
+    col.set([c.r, c.g, c.b], i * 3);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 4, vertexColors: true, transparent: true, opacity: 0.7, fog: false, depthWrite: false })));
+}
+
+// nebulosas por pasta (sprites suaves atrás de cada cluster)
+const glowTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d'), g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.25, 'rgba(255,255,255,.45)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+})();
+scene.children.filter(o => o.isPoints).forEach(o => { o.material.map = glowTex; o.material.needsUpdate = true; });
+const groupObjs = {};
+for (const g of groupNames) {
+  const members = nodes.filter(n => n.group === g);
+  const c = members.reduce((a, n) => a.add(new THREE.Vector3(n.x, n.y, n.z)), new THREE.Vector3()).divideScalar(members.length);
+  const spread = Math.sqrt(members.reduce((a, n) => a + (n.x - c.x) ** 2 + (n.y - c.y) ** 2 + (n.z - c.z) ** 2, 0) / members.length);
+  const neb = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: groupColor[g], transparent: true, opacity: 0.045, blending: THREE.AdditiveBlending, depthWrite: false }));
+  neb.position.copy(c); neb.scale.setScalar(Math.max(90, spread * 3.2));
+  scene.add(neb);
+  const el = document.createElement('div'); el.className = 'lbl grp'; el.textContent = g; el.style.color = groupColor[g];
+  el.onpointerenter = () => groupHover(g); el.onpointerleave = () => groupHover(null);
+  el.onclick = () => pinGroup(g); el.ondblclick = () => flyGroup(g);
+  const lbl = new CSS2DObject(el); lbl.position.copy(c).add(new THREE.Vector3(0, spread * 0.7 + 14, 0)); scene.add(lbl);
+  groupObjs[g] = { neb, lbl, center: c };
+}
+
+// ---------- sol distante ----------
+const sun = new THREE.Group();
+sun.position.set(-1500, 700, -5400);
+sun.scale.setScalar(1.8);
+// superfície: ruído fractal animado (granulação + manchas) com escurecimento de borda
+const NOISE = `
+  vec3 h3(vec3 p){ p = vec3(dot(p,vec3(127.1,311.7,74.7)), dot(p,vec3(269.5,183.3,246.1)), dot(p,vec3(113.5,271.9,124.6))); return -1.0 + 2.0*fract(sin(p)*43758.5453); }
+  float noise(vec3 p){ vec3 i=floor(p), f=fract(p), u=f*f*(3.0-2.0*f);
+    return mix(mix(mix(dot(h3(i),f), dot(h3(i+vec3(1,0,0)),f-vec3(1,0,0)),u.x), mix(dot(h3(i+vec3(0,1,0)),f-vec3(0,1,0)), dot(h3(i+vec3(1,1,0)),f-vec3(1,1,0)),u.x),u.y),
+               mix(mix(dot(h3(i+vec3(0,0,1)),f-vec3(0,0,1)), dot(h3(i+vec3(1,0,1)),f-vec3(1,0,1)),u.x), mix(dot(h3(i+vec3(0,1,1)),f-vec3(0,1,1)), dot(h3(i+vec3(1,1,1)),f-vec3(1,1,1)),u.x),u.y),u.z); }
+  float fbm(vec3 p){ float v=0.0, a=0.5; for(int i=0;i<5;i++){ v+=a*noise(p); p*=2.03; a*=0.5; } return v; }`;
+const sunU = { uTime: { value: 0 }, uColor: { value: new THREE.Color() }, uPow: { value: 1 } };
+const sunCore = new THREE.Mesh(new THREE.SphereGeometry(120, 96, 96), new THREE.ShaderMaterial({
+  uniforms: sunU, fog: false, toneMapped: false,
+  vertexShader: `varying vec3 vP; varying vec3 vN; varying vec3 vV;
+    void main(){ vP = position; vN = normalize(normalMatrix*normal); vec4 mv = modelViewMatrix*vec4(position,1.0); vV = normalize(-mv.xyz); gl_Position = projectionMatrix*mv; }`,
+  fragmentShader: `uniform float uTime; uniform vec3 uColor; uniform float uPow; varying vec3 vP; varying vec3 vN; varying vec3 vV;` + NOISE + `
+    void main(){
+      vec3 p = normalize(vP);
+      float t = uTime*0.06;
+      vec3 q = vec3(fbm(p*3.0+t), fbm(p*3.0+vec3(5.2,1.3,2.8)-t), fbm(p*3.0+vec3(1.7,9.2,4.1)+t*0.5));
+      float n = fbm(p*4.0 + q*2.2);                       // turbulência "fervendo"
+      float gran = noise(p*38.0 + t*6.0)*0.5+0.5;         // granulação fina
+      float spots = smoothstep(0.32, 0.5, fbm(p*1.6 - t*0.3)); // manchas solares
+      float mu = max(dot(vN, vV), 0.0);
+      float limb = pow(mu, 0.45);                          // escurecimento de borda
+      vec3 hot = mix(uColor, vec3(1.0,0.95,0.8), 0.2);
+      vec3 col = mix(uColor*vec3(0.75,0.3,0.12), hot, smoothstep(-0.35, 0.45, n)) * (0.75 + 0.35*gran);
+      col *= 1.0 - spots*0.55;
+      col *= limb;
+      col += uColor * pow(1.0-mu, 3.0) * 0.6;             // borda incandescente
+      gl_FragColor = vec4(col * (0.5 + uPow*0.2), 1.0);
+    }`,
+}));
+// coroa: billboard com raios e filamentos animados
+const corona = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
+  uniforms: sunU, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, toneMapped: false,
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+  fragmentShader: `uniform float uTime; uniform vec3 uColor; uniform float uPow; varying vec2 vUv;` + NOISE + `
+    void main(){
+      vec2 c = vUv*2.0-1.0; float r = length(c); float a = atan(c.y, c.x);
+      float R = 0.115;                                     // raio do disco no plano da coroa
+      if (r < R*0.98) discard;
+      float d = (r - R);
+      float rays = fbm(vec3(cos(a)*3.0, sin(a)*3.0, uTime*0.08 - d*2.0))*0.5+0.5;
+      float fil = pow(abs(noise(vec3(a*9.0, d*6.0 - uTime*0.25, uTime*0.05))), 0.6);
+      float glow = exp(-d*14.0)*0.7 + exp(-d*2.6)*0.3;
+      float streak = pow(rays, 3.0) * exp(-d*3.2) * (0.6 + fil*0.8);
+      float star = pow(max(0.0, 1.0-abs(c.y)*40.0), 2.0)*exp(-abs(c.x)*2.2) + pow(max(0.0, 1.0-abs(c.x)*40.0), 2.0)*exp(-abs(c.y)*2.2);
+      float I = (glow + streak*1.6 + star*0.35) * (0.12 + uPow*0.14) * smoothstep(1.0, 0.7, r);
+      vec3 col = mix(uColor*vec3(1.0,0.6,0.35), uColor, exp(-d*6.0));
+      gl_FragColor = vec4(col*I, 1.0);
+    }`,
+}));
+corona.scale.setScalar(120 / 0.115 * 2 * 0.5 * 2);        // disco da coroa casa com o raio 120
+// proeminências: arcos de plasma girando na borda
+const proms = new THREE.Group();
+for (let k = 0; k < 7; k++) {
+  const ang = Math.random() * Math.PI * 2, h = 30 + Math.random() * 45, w = 0.18 + Math.random() * 0.25;
+  const pts = []; for (let j = 0; j <= 24; j++) { const u = j / 24, aa = ang + (u - 0.5) * w; const rr = 120 + Math.sin(u * Math.PI) * h; pts.push(new THREE.Vector3(Math.cos(aa) * rr, Math.sin(aa) * rr, 0)); }
+  const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 1 + Math.random() * 1.5, 6),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false }));
+  tube.userData.ph = Math.random() * 6.28; proms.add(tube);
+}
+const sunGlow = [6, 16].map((k, j) => {
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, opacity: [0.12, 0.05][j] }));
+  sp.userData.k = k; sun.add(sp); return sp;
+});
+sun.add(sunCore, corona, proms);
+const ringTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 40, 64, 64, 62);
+  g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.6, 'rgba(255,255,255,.35)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c);
+})();
+const flare = new Lensflare();
+const flareEls = [[ringTex, 120, 0.7]].map(([tx, sz, d]) => {
+  const e = new LensflareElement(tx, sz, d, new THREE.Color()); flare.addElement(e); return e;
+});
+sun.add(flare);
+scene.add(sun);
+function applySun() {
+  const c = new THREE.Color(cfg.sunColor);
+  sun.visible = !!cfg.sunOn;
+  sunU.uColor.value.copy(c); sunU.uPow.value = cfg.sun;
+  proms.children.forEach(m => m.material.color.copy(c).lerp(new THREE.Color('#ff6a3d'), 0.35).multiplyScalar(0.6 + cfg.sun * 0.4));
+  sunGlow.forEach(sp => { sp.material.color.copy(c); sp.scale.setScalar(120 * sp.userData.k * (0.6 + cfg.sun * 0.4)); });
+  flareEls.forEach((e, j) => e.color.copy(c).multiplyScalar(0.08 * cfg.sun));
+}
+applySun();
+
+// ---------- estrelas (notas) ----------
+const sphere = new THREE.IcosahedronGeometry(1, 3);
+const starMat = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
+const stars = new THREE.InstancedMesh(sphere, starMat, nodes.length);
+const halo = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), nodes.length);
+stars.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(nodes.length * 3), 3);
+halo.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(nodes.length * 3), 3);
+scene.add(halo, stars);
+const radius = n => (n.ghost ? 2.2 : 2.6 + Math.sqrt(n.deg) * 1.35 + Math.log10(1 + n.words) * 0.5) * cfg.size;
+const baseCol = nodes.map(() => new THREE.Color());
+const recolor = () => nodes.forEach(n => baseCol[n.i].set(groupColor[n.group]).multiplyScalar(n.ghost ? 0.6 * cfg.bright / 1.25 : cfg.bright));
+recolor();
+
+// ---------- ligações: gradiente de cor origem -> destino ----------
+const lpos = new Float32Array(links.length * 6), lcol = new Float32Array(links.length * 6);
+const lgeo = new THREE.BufferGeometry();
+lgeo.setAttribute('position', new THREE.BufferAttribute(lpos, 3));
+lgeo.setAttribute('color', new THREE.BufferAttribute(lcol, 3));
+const lines = new THREE.LineSegments(lgeo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+scene.add(lines);
+
+// partículas que fluem pelas ligações (direção = quem cita -> quem é citado)
+const FLOW = 3, fpos = new Float32Array(links.length * FLOW * 3), fcol = new Float32Array(links.length * FLOW * 3);
+const fgeo = new THREE.BufferGeometry();
+fgeo.setAttribute('position', new THREE.BufferAttribute(fpos, 3));
+fgeo.setAttribute('color', new THREE.BufferAttribute(fcol, 3));
+const flows = new THREE.Points(fgeo, new THREE.PointsMaterial({ size: 3.2, map: glowTex, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, sizeAttenuation: true }));
+scene.add(flows);
+const seeds = links.map(() => Math.random());
+
+// ---------- estado de destaque ----------
+const state = { hover: null, selected: null, focusSet: null, showOrph: true, showGhost: true, tagFilter: null, groupHover: null, groupPin: null };
+const setMode = () => !!(state.tagFilter || state.groupPin || (!state.selected && state.groupHover));
+window.__galaxy = { state, nodes, links, camera, controls };
+const visible = n => !hidden.has(n.group) && (state.showGhost || !n.ghost) && (state.showOrph || n.deg > 0);
+
+function computeFocus() {
+  const f = state.selected ?? state.hover;
+  if (state.tagFilter) return new Set(nodes.filter(n => n.tags.includes(state.tagFilter)).map(n => n.id));
+  const g = (!state.selected && state.groupHover) || state.groupPin;
+  if (g && !state.selected) return new Set(nodes.filter(n => n.group === g).map(n => n.id));
+  if (!f) return null;
+  return new Set([f.id, ...f.out, ...f.inn]);
+}
+
+const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), P = new THREE.Vector3(), C = new THREE.Color();
+const OUT_C = new THREE.Color(), IN_C = new THREE.Color();
+const setDirColors = () => { OUT_C.set(cfg.outColor).multiplyScalar(2.2); IN_C.set(cfg.inColor).multiplyScalar(2.2); };
+setDirColors();
+// transições suaves: cada nota/link persegue seu valor-alvo com amortecimento exponencial
+
+const nS = new Float32Array(nodes.length).fill(1);     // escala atual
+const nD = new Float32Array(nodes.length).fill(1);     // brilho atual (0..1)
+const nH = new Float32Array(nodes.length);             // "quente" (nota focada) 0..1
+const lC = new Float32Array(links.length * 6);         // cor atual dos links
+const fK = new Float32Array(links.length);             // intensidade atual das partículas
+const fPh = Float32Array.from(seeds);                  // fase das partículas (evita saltos ao mudar velocidade)
+const fSp = new Float32Array(links.length).fill(0.12); // velocidade atual
+const ease = (cur, tgt, a) => cur + (tgt - cur) * a;
+const C2 = new THREE.Color();
+
+function refresh(t, dt) {
+  const a = 1 - Math.exp(-dt * cfg.fade);
+  const focus = state.focusSet, f = state.selected ?? state.hover;
+  for (const n of nodes) {
+    const i = n.i, vis = visible(n), inF = !focus || focus.has(n.id), hot = f && n.id === f.id ? 1 : 0;
+    nS[i] = ease(nS[i], !vis ? 0 : focus ? (inF ? 1.15 : 0.45) : 1, a);
+    nD[i] = ease(nD[i], inF ? 1 : 0.05, a);
+    nH[i] = ease(nH[i], hot, a);
+    const r = radius(n) * nS[i] * (1 + nH[i] * (0.35 + Math.sin(t * 5) * 0.15));
+    P.set(n.x, n.y, n.z);
+    M.compose(P, Q.identity(), S.setScalar(r)); stars.setMatrixAt(i, M);
+    M.compose(P, camera.quaternion, S.setScalar(r * (2.2 + nD[i]) * Math.sqrt(cfg.glow))); halo.setMatrixAt(i, M);
+    C.copy(baseCol[i]).multiplyScalar(nD[i]);
+    stars.setColorAt(i, C);
+    halo.setColorAt(i, C2.copy(baseCol[i]).multiplyScalar((0.03 + 0.04 * nD[i]) * cfg.glow * Math.max(nD[i], 0.3)));
+  }
+  stars.instanceMatrix.needsUpdate = halo.instanceMatrix.needsUpdate = true;
+  stars.instanceColor.needsUpdate = halo.instanceColor.needsUpdate = true;
+
+  links.forEach((l, i) => {
+    const A = byId.get(l.source), B = byId.get(l.target);
+    const vis = visible(A) && visible(B);
+    lpos.set([A.x, A.y, A.z, B.x, B.y, B.z], i * 6);
+    let ca = baseCol[A.i], cb = baseCol[B.i], k = vis ? cfg.links : 0;
+    if (focus && vis) {
+      if (f && (l.source === f.id || l.target === f.id)) { ca = cb = l.source === f.id ? OUT_C : IN_C; k = 0.9; }
+      else if (setMode() && focus.has(l.source) && focus.has(l.target)) k = 0.6;
+      else k = 0.03;
+    }
+    const o = i * 6, tg = [ca.r * k, ca.g * k, ca.b * k, cb.r * k, cb.g * k, cb.b * k];
+    for (let j = 0; j < 6; j++) lC[o + j] = ease(lC[o + j], tg[j], a);
+  });
+  lcol.set(lC);
+  lgeo.attributes.position.needsUpdate = lgeo.attributes.color.needsUpdate = true;
+}
+
+const FC = new Float32Array(links.length * 3);          // cor atual das partículas
+function updateFlows(t, dt) {
+  const a = 1 - Math.exp(-dt * cfg.fade);
+  const f = state.selected ?? state.hover, focus = state.focusSet;
+  links.forEach((l, i) => {
+    const A = byId.get(l.source), B = byId.get(l.target);
+    const mine = f && (l.source === f.id || l.target === f.id);
+    const on = visible(A) && visible(B) && (!focus || mine || (setMode() && focus.has(A.id) && focus.has(B.id)));
+    const col = mine ? (l.source === f.id ? OUT_C : IN_C) : baseCol[A.i];
+    fK[i] = ease(fK[i], !on ? 0 : mine ? 1 : focus ? 0.8 : 0.45, a);
+    fSp[i] = ease(fSp[i], mine ? 0.45 : 0.12, a);
+    fPh[i] = (fPh[i] + dt * fSp[i] * cfg.flowSpeed) % 1;
+    FC[i * 3] = ease(FC[i * 3], col.r, a); FC[i * 3 + 1] = ease(FC[i * 3 + 1], col.g, a); FC[i * 3 + 2] = ease(FC[i * 3 + 2], col.b, a);
+    for (let j = 0; j < FLOW; j++) {
+      const u = (fPh[i] + j / FLOW) % 1, o = (i * FLOW + j) * 3;
+      fpos[o] = A.x + (B.x - A.x) * u; fpos[o + 1] = A.y + (B.y - A.y) * u; fpos[o + 2] = A.z + (B.z - A.z) * u;
+      fcol[o] = FC[i * 3] * fK[i]; fcol[o + 1] = FC[i * 3 + 1] * fK[i]; fcol[o + 2] = FC[i * 3 + 2] * fK[i];
+    }
+  });
+  fgeo.attributes.position.needsUpdate = fgeo.attributes.color.needsUpdate = true;
+}
+
+// rótulos: notas mais conectadas sempre; vizinhos quando há foco
+const labelPool = new Map();
+const topIds = new Set([...nodes].filter(n => !n.ghost).sort((a, b) => b.deg - a.deg).map(n => n.id));
+const topN = () => new Set([...topIds].slice(0, cfg.labels));
+function label(n) {
+  let o = labelPool.get(n.id);
+  if (!o) {
+    const el = document.createElement('div'); el.className = 'lbl'; el.textContent = n.title;
+    o = new CSS2DObject(el); scene.add(o); labelPool.set(n.id, o);
+  }
+  o.position.set(n.x, n.y + radius(n) + 2, n.z);
+  return o;
+}
+function updateLabels() {
+  const focus = state.focusSet, f = state.selected ?? state.hover;
+  const want = new Set(focus ? [...(f && !setMode() ? [f.id] : []), ...[...focus].map(id => byId.get(id)).sort((a, b) => b.deg - a.deg).slice(0, 18).map(n => n.id)] : [...topN()]);
+  for (const [id, o] of labelPool) o.visible = false;
+  for (const id of want) {
+    const n = byId.get(id); if (!visible(n)) continue;
+    const o = label(n); o.visible = true;
+    o.element.classList.toggle('hot', !!f && id === f.id);
+    o.element.style.borderLeft = `3px solid ${groupColor[n.group]}`;
+  }
+  for (const g of groupNames) { const gm = setMode() && !state.tagFilter, act = g === (state.groupPin || state.groupHover);
+    groupObjs[g].lbl.visible = !hidden.has(g) && (!focus || gm);
+    groupObjs[g].lbl.element.style.opacity = gm && !act ? 0.3 : '';
+    groupObjs[g].lbl.element.classList.toggle('pin', g === state.groupPin);
+    groupObjs[g].neb.visible = !hidden.has(g) && !focus; }
+}
+
+// ---------- pós-processamento: bloom ----------
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.85, 0.5, 0.22);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+// ---------- interação ----------
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+let downAt = 0, downXY = [0, 0], lastMove = performance.now();
+function pick(e) {
+  mouse.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  // pega a nota cujo centro está mais perto do raio (mais tolerante que a malha)
+  let best = null, bd = Infinity;
+  for (const n of nodes) {
+    if (!visible(n)) continue;
+    P.set(n.x, n.y, n.z);
+    const d = ray.ray.distanceToPoint(P), tol = radius(n) * 1.6 + camera.position.distanceTo(P) * 0.006;
+    if (d < tol && d / tol < bd) { bd = d / tol; best = n; }
+  }
+  return best;
+}
+renderer.domElement.addEventListener('pointermove', e => {
+  lastMove = performance.now();
+  const n = pick(e);
+  if (n !== state.hover) { state.hover = n; if (!state.selected) state.focusSet = computeFocus(); }
+  const tip = $('tip');
+  if (n) {
+    tip.style.display = 'block'; tip.style.left = e.clientX + 14 + 'px'; tip.style.top = e.clientY + 12 + 'px';
+    tip.innerHTML = `<span class="dot" style="display:inline-block;color:${groupColor[n.group]};background:${groupColor[n.group]}"></span> ${esc(n.title)}<small>${n.out.length}→ · ←${n.inn.length}</small>`;
+    renderer.domElement.style.cursor = 'pointer';
+  } else { tip.style.display = 'none'; renderer.domElement.style.cursor = ''; }
+});
+renderer.domElement.addEventListener('pointerdown', e => { downAt = performance.now(); downXY = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (performance.now() - downAt > 300 || Math.hypot(e.clientX - downXY[0], e.clientY - downXY[1]) > 5) return;
+  const n = pick(e);
+  n ? select(n) : clearSel(false);
+});
+renderer.domElement.addEventListener('dblclick', e => { const n = pick(e); if (n && !n.ghost) openObsidian(n); });
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const obsUrl = n => `obsidian://open?vault=${encodeURIComponent(data.vault || VAULT_NAME)}&file=${encodeURIComponent(n.id)}`;
+const openObsidian = n => { location.href = obsUrl(n); };
+
+let fly = null;
+function flyTo(n) {
+  const target = new THREE.Vector3(n.x, n.y, n.z);
+  // câmera fica do lado de fora do cluster (centro da pasta -> nota), evitando atravessar outras estrelas
+  const gc = groupObjs[n.group].center, dir = target.clone().sub(gc);
+  if (dir.length() < 1) dir.copy(camera.position).sub(target);
+  dir.normalize().add(new THREE.Vector3(0, 0.35, 0)).normalize();
+  const dist = 170 + Math.sqrt(n.deg) * 22;
+  fly = { t: 0, fromP: camera.position.clone(), toP: target.clone().add(dir.multiplyScalar(dist)), fromT: controls.target.clone(), toT: target };
+}
+
+function groupHover(g) { state.groupHover = g; state.focusSet = computeFocus(); }
+function pinGroup(g) {
+  if (state.groupPin === g) return clearSel();
+  state.selected = null; state.tagFilter = null; state.groupPin = g; state.focusSet = computeFocus();
+  const list = nodes.filter(n => n.group === g).sort((a, b) => b.deg - a.deg);
+  const sub = {}; list.forEach(n => { const s = n.folder.split('/')[1] || '(raiz da pasta)'; sub[s] = (sub[s] || 0) + 1; });
+  const inner = links.filter(l => byId.get(l.source).group === g && byId.get(l.target).group === g).length;
+  const outer = links.filter(l => (byId.get(l.source).group === g) !== (byId.get(l.target).group === g)).length;
+  $('pBody').innerHTML = `<h4 style="color:${groupColor[g]}">Pasta 📌</h4><h2>${esc(g)}</h2>
+    <div class="stats"><div class="stat"><b>${list.length}</b><span>notas</span></div>
+    <div class="stat"><b>${inner}</b><span>links internos</span></div><div class="stat"><b>${outer}</b><span>links externos</span></div></div>
+    <h4>Subpastas</h4><div class="tags">${Object.entries(sub).sort((a, b) => b[1] - a[1]).map(([s, c]) => `<span class="tag">${esc(s)} · ${c}</span>`).join('')}</div>
+    <h4>Notas (mais conectadas primeiro)</h4><div class="lst">${list.map(n => item(n, '•')).join('')}</div>`;
+  $('panel').classList.add('open'); bindPanel(); flyGroup(g);
+}
+function flyGroup(g) { const o = groupObjs[g]; fly = { t: 0, fromP: camera.position.clone(), toP: o.center.clone().add(camera.position.clone().sub(controls.target).setY(0).normalize().multiplyScalar(420)).add(new THREE.Vector3(0, 120, 0)), fromT: controls.target.clone(), toT: o.center.clone() }; }
+function select(n) {
+  state.selected = n; state.tagFilter = null; state.groupPin = null; state.focusSet = computeFocus();
+  flyTo(n); renderPanel(n);
+}
+const HOME = { p: new THREE.Vector3(0, 220, 820), t: new THREE.Vector3() };
+function flyHome() { fly = { t: 0, fromP: camera.position.clone(), toP: HOME.p.clone(), fromT: controls.target.clone(), toT: HOME.t.clone() }; }
+function clearSel(home = true) {
+  const had = state.selected || state.tagFilter || state.groupPin;
+  state.selected = null; state.tagFilter = null; state.groupPin = null; state.groupHover = null;
+  if (home && had) flyHome(); state.focusSet = computeFocus();
+  $('panel').classList.remove('open');
+}
+function filterTag(tag) {
+  state.selected = null; state.tagFilter = tag; state.groupPin = null; state.focusSet = computeFocus();
+  const list = nodes.filter(n => n.tags.includes(tag));
+  $('pBody').innerHTML = `<h4>Tag</h4><h2>#${esc(tag)}</h2><div class="path">${list.length} notas</div>
+    <div class="lst">${list.map(n => item(n, '•')).join('')}</div>`;
+  $('panel').classList.add('open'); bindPanel();
+}
+const item = (n, arrow) => `<div data-id="${esc(n.id)}"><span class="arrow">${arrow}</span><span class="dot" style="color:${groupColor[n.group]};background:${groupColor[n.group]}"></span>${esc(n.title)}</div>`;
+function renderPanel(n) {
+  const outs = n.out.map(id => byId.get(id)), ins = n.inn.map(id => byId.get(id));
+  const date = n.mtime ? new Date(n.mtime * 1000).toLocaleDateString('pt-BR') : '—';
+  $('pBody').innerHTML = `
+    <h4 style="color:${groupColor[n.group]}">${esc(n.group)}</h4>
+    <h2>${esc(n.title)}</h2>
+    <div class="path">${esc(n.folder || '/')}</div>
+    <div class="stats">
+      <div class="stat"><b style="color:#38e1ff">${outs.length}</b><span>cita →</span></div>
+      <div class="stat"><b style="color:#ff4fd8">${ins.length}</b><span>← citada por</span></div>
+      <div class="stat"><b>${n.words}</b><span>palavras · ${date}</span></div>
+    </div>
+    ${n.tags.length ? `<div class="tags">${n.tags.map(t => `<span class="tag" data-tag="${esc(t)}">#${esc(t)}</span>`).join('')}</div>` : ''}
+    ${n.excerpt ? `<p class="ex">${esc(n.excerpt)}${n.excerpt.length >= 280 ? '…' : ''}</p>` : ''}
+    ${!n.ghost ? `<p><a class="btn" href="${obsUrl(n)}">Abrir no Obsidian ↗</a></p>` : ''}
+    ${outs.length ? `<h4 style="color:#38e1ff">Cita (${outs.length})</h4><div class="lst">${outs.map(o => item(o, '→')).join('')}</div>` : ''}
+    ${ins.length ? `<h4 style="color:#ff4fd8">Citada por (${ins.length})</h4><div class="lst">${ins.map(o => item(o, '←')).join('')}</div>` : ''}`;
+  $('panel').classList.add('open'); bindPanel();
+}
+function bindPanel() {
+  $('pBody').querySelectorAll('[data-id]').forEach(el => el.onclick = () => select(byId.get(el.dataset.id)));
+  $('pBody').querySelectorAll('[data-tag]').forEach(el => el.onclick = () => filterTag(el.dataset.tag));
+}
+$('pClose').onclick = clearSel;
+
+// legenda
+function renderLegend() {
+  $('groups').innerHTML = groupNames.map(g => `<div class="lg ${hidden.has(g) ? 'off' : ''}" data-g="${esc(g)}">
+    <span class="dot" style="color:${groupColor[g]};background:${groupColor[g]}"></span>${esc(g)}
+    <span class="n">${nodes.filter(n => n.group === g).length}</span></div>`).join('');
+  $('groups').querySelectorAll('.lg').forEach(el => {
+    el.onclick = (e) => {
+      const g = el.dataset.g;
+      if (e.altKey) { hidden.clear(); groupNames.forEach(x => x !== g && hidden.add(x)); }   // Alt+clique = solo
+      else hidden.has(g) ? hidden.delete(g) : hidden.add(g);
+      renderLegend();
+    };
+    el.ondblclick = () => flyGroup(el.dataset.g);
+    el.onpointerenter = () => groupHover(el.dataset.g); el.onpointerleave = () => groupHover(null);
+  });
+  for (const g of groupNames) groupObjs[g].neb.visible = !hidden.has(g);
+}
+renderLegend();
+$('oOrph').onchange = e => state.showOrph = e.target.checked;
+$('oGhost').onchange = e => state.showGhost = e.target.checked;
+$('oRot').onchange = e => controls.autoRotate = e.target.checked;
+
+// busca
+const sIn = $('search'), sug = $('sugg');
+let sIdx = 0, sRes = [];
+const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+sIn.addEventListener('input', () => {
+  const q = norm(sIn.value.trim());
+  if (!q) { sug.style.display = 'none'; return; }
+  if (q.startsWith('#')) {
+    const tags = [...new Set(nodes.flatMap(n => n.tags))].filter(t => norm(t).includes(q.slice(1))).slice(0, 12);
+    sRes = tags.map(t => ({ tag: t }));
+  } else {
+    sRes = nodes.filter(n => norm(n.title).includes(q) || norm(n.id).includes(q))
+      .sort((a, b) => norm(a.title).indexOf(q) - norm(b.title).indexOf(q) || b.deg - a.deg).slice(0, 12);
+  }
+  sIdx = 0; drawSug();
+});
+function drawSug() {
+  sug.style.display = sRes.length ? 'block' : 'none';
+  sug.innerHTML = sRes.map((r, i) => r.tag
+    ? `<div class="${i === sIdx ? 'on' : ''}" data-i="${i}">#${esc(r.tag)} <small style="color:var(--mut);margin-left:auto">${nodes.filter(n => n.tags.includes(r.tag)).length}</small></div>`
+    : `<div class="${i === sIdx ? 'on' : ''}" data-i="${i}"><span class="dot" style="color:${groupColor[r.group]};background:${groupColor[r.group]}"></span>${esc(r.title)}<small style="color:var(--mut);margin-left:auto">${esc(r.group)}</small></div>`).join('');
+  sug.querySelectorAll('[data-i]').forEach(el => el.onclick = () => choose(sRes[+el.dataset.i]));
+}
+function choose(r) { sug.style.display = 'none'; sIn.value = ''; sIn.blur(); r.tag ? filterTag(r.tag) : select(r); }
+sIn.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { sIdx = Math.min(sRes.length - 1, sIdx + 1); drawSug(); e.preventDefault(); }
+  if (e.key === 'ArrowUp') { sIdx = Math.max(0, sIdx - 1); drawSug(); e.preventDefault(); }
+  if (e.key === 'Enter' && sRes[sIdx]) choose(sRes[sIdx]);
+  if (e.key === 'Escape') { sIn.value = ''; sug.style.display = 'none'; sIn.blur(); }
+});
+addEventListener('keydown', e => {
+  if (document.activeElement === sIn) return;
+  if (e.key === '/') { e.preventDefault(); sIn.focus(); }
+  if (e.key === 'Escape') clearSel();
+});
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); labelRenderer.setSize(innerWidth, innerHeight);
+});
+
+// ---------- painel de controles ----------
+function moveGroups() {
+  for (const g of groupNames) {
+    const ms = nodes.filter(n => n.group === g), c = groupObjs[g].center.set(0, 0, 0);
+    ms.forEach(n => { c.x += n.x / ms.length; c.y += n.y / ms.length; c.z += n.z / ms.length; });
+    const sp = Math.sqrt(ms.reduce((a, n) => a + (n.x - c.x) ** 2 + (n.y - c.y) ** 2 + (n.z - c.z) ** 2, 0) / ms.length);
+    groupObjs[g].neb.position.copy(c); groupObjs[g].neb.scale.setScalar(Math.max(90, sp * 3.2));
+    groupObjs[g].lbl.position.copy(c).add(new THREE.Vector3(0, sp * 0.7 + 14, 0));
+  }
+}
+const SLIDERS = [
+  ['Visual'],
+  ['bright', 'Brilho das notas', 0.2, 3, 0.05],
+  ['glow', 'Halo / aura', 0, 4, 0.05],
+  ['size', 'Tamanho das notas', 0.3, 3, 0.05],
+  ['bloom', 'Bloom (brilho global)', 0, 2.5, 0.05],
+  ['links', 'Intensidade dos links', 0, 1, 0.01],
+  ['flowSize', 'Tamanho das partículas', 0, 10, 0.2],
+  ['flowSpeed', 'Velocidade do fluxo', 0, 4, 0.05],
+  ['labels', 'Rótulos fixos (top N)', 0, 60, 1],
+  ['fade', 'Velocidade da transição de foco', 1, 20, 0.5],
+  ['sun', 'Intensidade do sol', 0, 3, 0.05],
+  ['grpOutline', 'Contorno dos nomes das pastas', 0, 2, 0.05],
+  ['Forças (física)'],
+  ['repel', 'Repulsão entre notas', 0, 300, 1, 1],
+  ['centri', 'Força centrípeta (pasta)', 0, 0.6, 0.005, 1],
+  ['spread', 'Distância entre pastas', 0, 900, 5, 1],
+  ['linkIn', 'Força link (mesma pasta)', 0, 1.5, 0.01, 1],
+  ['linkOut', 'Força link (entre pastas)', 0, 1, 0.005, 1],
+  ['distIn', 'Distância link (mesma pasta)', 5, 200, 1, 1],
+  ['distOut', 'Distância link (entre pastas)', 5, 400, 1, 1],
+  ['collide', 'Colisão (espaço entre notas)', 0, 4, 0.05, 1],
+];
+function applyColors() {
+  recolor(); setDirColors(); applySun();
+  document.documentElement.style.setProperty('--o', cfg.grpOutline);
+  scene.background.set(cfg.bgColor); scene.fog.color.set(cfg.bgColor);
+  document.documentElement.style.setProperty('--bg', cfg.bgColor);
+  for (const g of groupNames) { groupObjs[g].neb.material.color.set(groupColor[g]); groupObjs[g].lbl.element.style.color = groupColor[g]; }
+}
+function renderCfg() {
+  $('cfg').innerHTML = SLIDERS.map(s => s.length === 1 ? `<h4>${s[0]}</h4>` :
+    `<label class="sl"><span>${s[1]}</span><output id="o_${s[0]}">${cfg[s[0]]}</output>
+     <input type="range" data-k="${s[0]}" data-phys="${s[5] ? 1 : 0}" min="${s[2]}" max="${s[3]}" step="${s[4]}" value="${cfg[s[0]]}"></label>`).join('') +
+    `<h4>Cores</h4>
+     <label class="sl" style="grid-template-columns:1fr auto"><span>Mostrar sol</span><input type="checkbox" id="cSunOn" ${cfg.sunOn ? 'checked' : ''} style="grid-column:auto;width:auto"></label>
+     ${[['sunColor', 'Sol'], ['bgColor', 'Fundo do espaço'], ['outColor', 'Link: cita →'], ['inColor', 'Link: ← citada por']]
+        .map(([k, t]) => `<label class="cl"><span>${t}</span><input type="color" data-c="${k}" value="${cfg[k]}"></label>`).join('')}
+     <h4>Cores das pastas</h4>
+     ${groupNames.map(g => `<label class="cl"><span>${esc(g)}</span><input type="color" data-g="${esc(g)}" value="${groupColor[g]}"></label>`).join('')}` +
+    `<div class="row"><button class="btn" id="cReheat">Reorganizar</button><button class="btn" id="cReset">Padrão</button></div>`;
+  $('cfg').querySelectorAll('input[type=range]').forEach(el => el.oninput = () => {
+    const k = el.dataset.k; cfg[k] = +el.value; $('o_' + k).textContent = el.value;
+    if (k === 'grpOutline') document.documentElement.style.setProperty('--o', cfg.grpOutline);
+    saveCfg();
+    if (k === 'bright') recolor();
+    if (k === 'sun') applySun();
+    if (el.dataset.phys === '1') { applyForces(); sim.alpha(Math.max(sim.alpha(), 0.35)); }
+  });
+  $('cfg').querySelectorAll('input[data-c]').forEach(el => el.oninput = () => { cfg[el.dataset.c] = el.value; saveCfg(); applyColors(); });
+  $('cfg').querySelectorAll('input[data-g]').forEach(el => el.oninput = () => {
+    groupColor[el.dataset.g] = cfg.groupColors[el.dataset.g] = el.value; saveCfg(); applyColors(); renderLegend(); });
+  $('cSunOn').onchange = e => { cfg.sunOn = e.target.checked ? 1 : 0; saveCfg(); applySun(); };
+  $('cReheat').onclick = () => sim.alpha(0.8);
+  $('cReset').onclick = () => { Object.assign(cfg, CFG_DEF, { groupColors: {} }); Object.assign(groupColor, DEFAULT_GROUP_COLOR); applyColors(); renderLegend(); localStorage.removeItem('vg.cfg'); recolor(); applyForces(); sim.alpha(0.6); renderCfg(); };
+}
+renderCfg();
+$('cfgBtn').onclick = () => document.body.classList.toggle('cfgOpen');
+addEventListener('keydown', e => { if (e.key === 'g' && document.activeElement.tagName !== 'INPUT') document.body.classList.toggle('cfgOpen'); });
+// esconder/mostrar legenda e dicas (lembra a escolha)
+const uiMin = JSON.parse(localStorage.getItem('vg.ui') || '{}');
+const applyUi = () => { $('legend').classList.toggle('min', !!uiMin.leg); $('legTog').textContent = uiMin.leg ? '▸' : '▾'; $('help').classList.toggle('min', !!uiMin.help); localStorage.setItem('vg.ui', JSON.stringify(uiMin)); };
+const togUi = k => { uiMin[k] = !uiMin[k]; applyUi(); };
+$('legHead').onclick = e => { e.stopPropagation(); togUi('leg'); };
+$('help').onclick = e => { if (uiMin.help || e.target.id === 'helpTog') togUi('help'); };
+addEventListener('keydown', e => {
+  if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) || e.metaKey || e.ctrlKey) return;
+  if (e.key === 'l' || e.key === 'L') togUi('leg');
+  if (e.key === 'h' || e.key === 'H') togUi('help');
+});
+applyUi();
+
+// ---------- loop ----------
+const clock = new THREE.Clock();
+let ticks = 0;
+function animate() {
+  const dt = Math.min(clock.getDelta(), 0.1), t = clock.elapsedTime;
+  sunU.uTime.value = t; corona.quaternion.copy(camera.quaternion); proms.quaternion.copy(camera.quaternion);
+  proms.children.forEach(m => { m.material.opacity = 0.08 + 0.2 * (0.5 + 0.5 * Math.sin(t * 0.4 + m.userData.ph)); });
+  if (sim.alpha() > sim.alphaMin()) { sim.tick(); moveGroups(); }
+  if (fly) {
+    fly.t = Math.min(1, fly.t + dt * 1.1);
+    const k = 1 - Math.pow(1 - fly.t, 3);
+    camera.position.lerpVectors(fly.fromP, fly.toP, k);
+    controls.target.lerpVectors(fly.fromT, fly.toT, k);
+    if (fly.t >= 1) fly = null;
+  }
+  controls.autoRotate = $('oRot').checked && !state.selected && performance.now() - lastMove > 2500;
+  controls.update();
+  bloom.strength += ((state.focusSet ? cfg.bloom * 0.55 : cfg.bloom) - bloom.strength) * (1 - Math.exp(-dt * 4));
+  flows.material.size = cfg.flowSize;
+  refresh(t, dt); updateFlows(t, dt); updateLabels();
+  composer.render();
+  labelRenderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+animate();
+$('loading').style.opacity = 0; setTimeout(() => $('loading').remove(), 700);
+</script>
+</body>
+</html>
