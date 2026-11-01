@@ -29,6 +29,8 @@ precisa estar no código.
 - `/` busca por título; `#tag` busca tags. `Esc` limpa.
 - Legenda: clique esconde/mostra pasta, Alt+clique isola, duplo clique voa até a constelação.
 - Opções: esconder órfãs, esconder links para notas inexistentes (cinza), rotação automática.
+- O ajuste fino (brilho, física, cores das pastas, pastas escondidas) fica no **servidor** quando ele
+  está disponível (`/api/prefs`), então vale em todos os aparelhos; sem servidor, fica no navegador.
 
 ## Como os dados são extraídos
 

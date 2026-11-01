@@ -85,6 +85,11 @@
   .row .btn { flex:1; justify-content:center; font-size:12.5px; padding:7px; }
   #loading { position:fixed; inset:0; display:grid; place-items:center; z-index:10; background:var(--bg); color:var(--mut); letter-spacing:.2em; transition:opacity .6s; }
 
+  /* aviso curto quando as preferências chegam de outro aparelho */
+  #aviso { position:fixed; left:50%; bottom:calc(64px + env(safe-area-inset-bottom, 0px)); transform:translate(-50%, 250%); transition:transform .3s cubic-bezier(.2,.8,.2,1);
+           padding:10px 16px; font-size:13px; color:var(--txt); z-index:8; pointer-events:none; max-width:calc(100vw - 32px); }
+  #aviso.on { transform:translate(-50%, 0); }
+
   /* cabeçalho dos controles: botão de fechar próprio (no celular os controles são folha cheia) */
   #cfgHead { display:flex; align-items:center; justify-content:space-between; margin:0 0 6px; }
   #cfgHead h4 { margin:0; }
@@ -229,7 +234,7 @@ const CFG_DEF = {
 const cfg = { ...CFG_DEF, ...JSON.parse(localStorage.getItem('vg.cfg') || '{}') };
 cfg.groupColors = { ...(cfg.groupColors || {}) };
 Object.assign(groupColor, cfg.groupColors);
-const saveCfg = () => localStorage.setItem('vg.cfg', JSON.stringify(cfg));
+const saveCfg = () => { localStorage.setItem('vg.cfg', JSON.stringify(cfg)); pushLater(); };
 
 // ---------- layout: forças com atração por pasta ----------
 const centers = {};
@@ -696,7 +701,7 @@ function renderLegend() {
       const g = el.dataset.g;
       if (e.altKey) { hidden.clear(); groupNames.forEach(x => x !== g && hidden.add(x)); }   // Alt+clique = solo
       else hidden.has(g) ? hidden.delete(g) : hidden.add(g);
-      renderLegend();
+      renderLegend(); pushLater();
     };
     el.ondblclick = () => flyGroup(el.dataset.g);
     el.onpointerenter = () => groupHover(el.dataset.g); el.onpointerleave = () => groupHover(null);
@@ -704,9 +709,9 @@ function renderLegend() {
   for (const g of groupNames) groupObjs[g].neb.visible = !hidden.has(g);
 }
 renderLegend();
-$('oOrph').onchange = e => state.showOrph = e.target.checked;
-$('oGhost').onchange = e => state.showGhost = e.target.checked;
-$('oRot').onchange = e => controls.autoRotate = e.target.checked;
+$('oOrph').onchange = e => { state.showOrph = e.target.checked; pushLater(); };
+$('oGhost').onchange = e => { state.showGhost = e.target.checked; pushLater(); };
+$('oRot').onchange = e => { controls.autoRotate = e.target.checked; pushLater(); };
 
 // busca
 const sIn = $('search'), sug = $('sugg');
@@ -816,7 +821,7 @@ function renderCfg() {
   $('cSunOn').onchange = e => { cfg.sunOn = e.target.checked ? 1 : 0; saveCfg(); applySun(); };
   $('cClose').onclick = () => document.body.classList.remove('cfgOpen');
   $('cReheat').onclick = () => sim.alpha(0.8);
-  $('cReset').onclick = () => { Object.assign(cfg, CFG_DEF, { groupColors: {} }); Object.assign(groupColor, DEFAULT_GROUP_COLOR); applyColors(); renderLegend(); localStorage.removeItem('vg.cfg'); recolor(); applyForces(); sim.alpha(0.6); renderCfg(); };
+  $('cReset').onclick = () => { Object.assign(cfg, CFG_DEF, { groupColors: {} }); Object.assign(groupColor, DEFAULT_GROUP_COLOR); applyColors(); renderLegend(); localStorage.removeItem('vg.cfg'); recolor(); applyForces(); sim.alpha(0.6); renderCfg(); pushLater(); };
 }
 renderCfg();
 $('cfgBtn').onclick = () => document.body.classList.toggle('cfgOpen');
@@ -846,6 +851,71 @@ addEventListener('keydown', e => {
   if (e.key === 'h' || e.key === 'H') togUi('help');
 });
 applyUi();
+
+// ---------- preferências compartilhadas entre dispositivos ----------
+// O ajuste fino (visual, física, cores das pastas, pastas escondidas e as caixas
+// de opção) vive no servidor, em /api/prefs — arquivo no volume de dados. Assim o
+// que você ajusta no celular vale no desktop. Fica local só o que depende da tela:
+// legenda/dicas recolhidas. Sem a API (site servido estaticamente), cai de volta no
+// localStorage sem quebrar nada.
+const API_PREFS = 'api/prefs';
+const DEVICE = (() => {
+  let d = localStorage.getItem('vg.device');
+  if (!d) { d = (navigator.platform || 'web') + '-' + Math.random().toString(36).slice(2, 6); localStorage.setItem('vg.device', d); }
+  return d;
+})();
+let prefsVersion = -1, prefsTimer = 0, prefsUltimoToque = 0, avisoTimer = 0;
+
+const estadoAtual = () => ({ device: DEVICE, cfg, hidden: [...hidden], showOrph: state.showOrph, showGhost: state.showGhost, autoRotate: $('oRot').checked });
+
+async function prefsPush() {
+  try {
+    const r = await fetch(API_PREFS, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(estadoAtual()) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    prefsVersion = (await r.json()).version;
+  } catch { /* sem API: o localStorage continua sendo a cópia local */ }
+}
+const pushLater = () => { prefsUltimoToque = performance.now(); clearTimeout(prefsTimer); prefsTimer = setTimeout(prefsPush, 900); };
+
+function prefsAviso(txt) {
+  let el = $('aviso');
+  if (!el) { el = document.createElement('div'); el.id = 'aviso'; el.className = 'glass'; document.body.appendChild(el); }
+  el.textContent = txt; el.classList.add('on');
+  clearTimeout(avisoTimer); avisoTimer = setTimeout(() => el.classList.remove('on'), 2600);
+}
+
+function prefsAplicar(d) {
+  if (d.cfg && Object.keys(d.cfg).length) {
+    Object.assign(cfg, d.cfg);
+    cfg.groupColors = { ...(d.cfg.groupColors || {}) };
+    Object.assign(groupColor, DEFAULT_GROUP_COLOR, cfg.groupColors);
+  }
+  if (Array.isArray(d.hidden)) { hidden.clear(); d.hidden.forEach(g => hidden.add(g)); }
+  if (typeof d.showOrph === 'boolean') { state.showOrph = d.showOrph; $('oOrph').checked = d.showOrph; }
+  if (typeof d.showGhost === 'boolean') { state.showGhost = d.showGhost; $('oGhost').checked = d.showGhost; }
+  if (typeof d.autoRotate === 'boolean') $('oRot').checked = d.autoRotate;
+  applyColors(); renderLegend(); renderCfg(); state.focusSet = computeFocus();
+  localStorage.setItem('vg.cfg', JSON.stringify(cfg));      // cópia local em dia
+  prefsAviso(`preferências de ${d.device || 'outro aparelho'}`);
+}
+
+async function prefsPull() {
+  try {
+    const r = await fetch(API_PREFS, { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if (d.version === prefsVersion) return;
+    const primeira = prefsVersion < 0;                     // primeira leitura desta aba
+    prefsVersion = d.version;
+    if (d.device === DEVICE && !primeira) return;          // fui eu que acabei de gravar
+    if (primeira && !d.version) return prefsPush();        // servidor vazio: semeia com o local
+    if (!primeira && performance.now() - prefsUltimoToque < 3000) return;   // não atropela quem está mexendo
+    prefsAplicar(d);
+  } catch { /* offline ou site estático: segue o localStorage */ }
+}
+prefsPull();
+setInterval(prefsPull, 20000);                             // pega o que mudou em outro aparelho
+addEventListener('visibilitychange', () => { if (!document.hidden) prefsPull(); });
 
 // ---------- loop ----------
 const clock = new THREE.Clock();

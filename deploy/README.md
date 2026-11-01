@@ -8,7 +8,12 @@ pod com três containers:
 | --- | --- | --- |
 | `sync` | cliente headless do Obsidian Sync (`Dockerfile.sync`), só baixa: `pull-only` | credencial do Obsidian Sync |
 | `indexer` | roda `build_graph.py <vault> --watch` e escreve `data/graph.json` | o clone do vault |
+| `prefs` | API mínima em `/api/prefs` (o nginx proxia): preferências da interface entre dispositivos | nada |
 | `web` | nginx servindo `index.html` + `data/graph.json` | nada além dos arquivos |
+
+`prefs_api.py` guarda um JSON no volume (`/data/prefs.json`) e só escuta em localhost do pod — o
+nginx é a única porta de entrada. É um dono por site: sem conta e sem login, então não exponha fora
+da sua rede sem pôr autenticação na frente.
 
     kubectl apply -k .        # da raiz do repo
 

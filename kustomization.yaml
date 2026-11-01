@@ -16,6 +16,7 @@ configMapGenerator:
     files:
       - index.html
       - build_graph.py
+      - prefs_api.py
   - name: vault-galaxy-nginx
     files:
       - default.conf=deploy/nginx.conf
