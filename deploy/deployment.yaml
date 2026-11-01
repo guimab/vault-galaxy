@@ -1,0 +1,110 @@
+# vault-galaxy: espelho pull-only do vault Obsidian no cluster + visualizacao 3D.
+#
+# Um PVC so (/data) com tres pastas:
+#   /data/vault   clone do vault (recebido pelo cliente headless do Obsidian Sync)
+#   /data/config  XDG_CONFIG_HOME do ob (auth_token, estado sqlite por vault)
+#   /data/www     site estatico: index.html + build_graph.py + data/graph.json
+#
+# Sincronizacao: Obsidian Headless (oficial). O cluster so PUXA (pull-only),
+# nunca escreve no vault. Ordem no primeiro start: sync-setup -> sync-config
+# --mode pull-only -> sync --continuous.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault-galaxy
+  namespace: vault-galaxy
+  labels: {app: vault-galaxy}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate          # PVC RWO + lock do ob: nunca duas instancias do mesmo vault
+  selector:
+    matchLabels: {app: vault-galaxy}
+  template:
+    metadata:
+      labels: {app: vault-galaxy}
+    spec:
+      initContainers:
+        - name: seed
+          image: busybox:1.36
+          command: ["sh", "-c", "mkdir -p /data/www/data /data/vault /data/config && cp -f /seed/index.html /seed/build_graph.py /data/www/ && ls -la /data/www"]
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: app-src, mountPath: /seed}
+      containers:
+        - name: sync
+          image: vault-galaxy-sync:0.0.14
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              export XDG_CONFIG_HOME=/data/config
+              # Secret criado por --from-file pode trazer newline no fim do valor;
+              # newline em token ou na senha E2E quebra o login/derivacao da chave.
+              OBSIDIAN_AUTH_TOKEN="$(printf '%s' "${OBSIDIAN_AUTH_TOKEN}" | tr -d '\r\n')"
+              export OBSIDIAN_AUTH_TOKEN
+              ENCRYPTION_PASSWORD="$(printf '%s' "${ENCRYPTION_PASSWORD:-}" | tr -d '\r\n')"
+              export ENCRYPTION_PASSWORD
+              SYNC_STATE="$XDG_CONFIG_HOME/obsidian-headless/sync"
+              if [ ! -d "$SYNC_STATE" ] || [ -z "$(ls -A "$SYNC_STATE" 2>/dev/null || true)" ]; then
+                echo "== primeiro start: sync-setup de '$VAULT_NAME' em /data/vault =="
+                if [ -n "${ENCRYPTION_PASSWORD:-}" ]; then
+                  ob sync-setup --vault "$VAULT_NAME" --path /data/vault \
+                    --device-name "$DEVICE_NAME" --password "$ENCRYPTION_PASSWORD"
+                else
+                  echo "   (sem ENCRYPTION_PASSWORD: so funciona se o vault remoto nao usa criptografia ponta a ponta)"
+                  ob sync-setup --vault "$VAULT_NAME" --path /data/vault --device-name "$DEVICE_NAME"
+                fi
+                echo "== modo pull-only (o cluster so baixa) =="
+                ob sync-config --path /data/vault --mode pull-only
+              else
+                echo "== estado de sync ja existe, seguindo =="
+                ob sync-status --path /data/vault || true
+              fi
+              echo "== sync continuo =="
+              exec ob sync --continuous --path /data/vault
+          env:
+            - {name: VAULT_NAME, valueFrom: {configMapKeyRef: {name: vault-galaxy-env, key: VAULT_NAME}}}
+            - {name: DEVICE_NAME, value: vault-galaxy-cluster}
+            - name: OBSIDIAN_AUTH_TOKEN
+              valueFrom: {secretKeyRef: {name: obsidian-sync, key: auth_token}}
+            - name: ENCRYPTION_PASSWORD
+              valueFrom: {secretKeyRef: {name: obsidian-sync, key: encryption_password, optional: true}}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {memory: 512Mi}
+        - name: indexer
+          image: python:3.12-slim
+          command: ["sh", "-c"]
+          args: ["cd /data/www && exec python3 /data/www/build_graph.py /data/vault --watch"]
+          env:
+            - {name: VAULT_NAME, valueFrom: {configMapKeyRef: {name: vault-galaxy-env, key: VAULT_NAME}}}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+          resources:
+            requests: {cpu: 20m, memory: 64Mi}
+            limits: {memory: 256Mi}
+        - name: web
+          image: nginx:1.27-alpine
+          ports:
+            - {name: http, containerPort: 80}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: nginx-conf, mountPath: /etc/nginx/conf.d/default.conf, subPath: default.conf}
+          readinessProbe:
+            httpGet: {path: /, port: 80}
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 128Mi}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: vault-galaxy-data}
+        - name: app-src
+          configMap: {name: vault-galaxy-app}
+        - name: nginx-conf
+          configMap: {name: vault-galaxy-nginx}

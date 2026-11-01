@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: vault-galaxy
+
+resources:
+  - deploy/namespace.yaml
+  - deploy/pvc.yaml
+  - deploy/deployment.yaml
+  - deploy/service-ingress.yaml
+
+# O conteúdo dos arquivos vira ConfigMap com hash no nome: mudar o index.html
+# ou o build_graph.py já faz o pod rodar na versão nova, sem ninguém lembrar
+# de regerar ConfigMap na mão.
+configMapGenerator:
+  - name: vault-galaxy-app
+    files:
+      - index.html
+      - build_graph.py
+  - name: vault-galaxy-nginx
+    files:
+      - default.conf=deploy/nginx.conf

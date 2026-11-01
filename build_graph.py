@@ -99,7 +99,8 @@ def build():
             links[key] = links.get(key, 0) + 1
 
     nodes.update(ghosts)
-    data = dict(generated=int(time.time()),
+    data = dict(vault=os.environ.get('VAULT_NAME') or VAULT.name,
+                generated=int(time.time()),
                 nodes=list(nodes.values()),
                 links=[dict(source=s, target=t, weight=w) for (s, t), w in links.items()])
     OUT.parent.mkdir(parents=True, exist_ok=True)

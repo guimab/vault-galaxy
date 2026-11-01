@@ -1,0 +1,47 @@
+name: image
+
+# Publica a imagem do cliente headless (obsidian-headless) no GHCR.
+# É a única peça do deploy que não é arquivo: quando o OB_VERSION do
+# Dockerfile.sync muda, a tag nova aparece aqui e o Deployment usa ela.
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile.sync
+      - .github/workflows/image.yaml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  sync-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versão do obsidian-headless
+        id: versao
+        run: |
+          v="$(sed -n 's/^ARG OB_VERSION=//p' Dockerfile.sync | head -1)"
+          test -n "$v" || { echo "OB_VERSION não encontrado no Dockerfile.sync"; exit 1; }
+          echo "valor=$v" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.sync
+          push: true
+          provenance: false
+          build-args: |
+            OB_VERSION=${{ steps.versao.outputs.valor }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/vault-galaxy-sync:${{ steps.versao.outputs.valor }}
+            ghcr.io/${{ github.repository_owner }}/vault-galaxy-sync:latest

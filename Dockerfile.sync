@@ -1,0 +1,10 @@
+# Cliente headless do Obsidian Sync (oficial, open beta) para o cluster.
+# Node 22 em glibc (slim) porque o obsidian-headless usa better-sqlite3 nativo.
+# Versao fixada: o pacote e 0.0.x/beta, atualizar de proposito.
+FROM node:22-slim
+
+ARG OB_VERSION=0.0.14
+RUN npm install -g --omit=dev "obsidian-headless@${OB_VERSION}" \
+ && npm cache clean --force \
+ && ob --version \
+ && ls /usr/local/lib/node_modules/obsidian-headless/node_modules/better-sqlite3/build/Release/better_sqlite3.node

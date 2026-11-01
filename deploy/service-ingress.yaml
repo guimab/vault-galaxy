@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-galaxy
+  namespace: vault-galaxy
+  labels: {app: vault-galaxy}
+spec:
+  type: ClusterIP
+  selector: {app: vault-galaxy}
+  ports:
+    - {name: http, port: 80, targetPort: http}
+---
+# Só LAN. O acesso remoto (túnel) fica para depois, com login na frente.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vault-galaxy
+  namespace: vault-galaxy
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: vault-galaxy.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vault-galaxy
+                port: {number: 80}
+    # Alias para clientes que tratam .local como mDNS (macOS/iOS): o DNS do
+    # roteador resolve .lan em qualquer aparelho.
+    - host: vault-galaxy.lan
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vault-galaxy
+                port: {number: 80}

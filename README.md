@@ -17,6 +17,10 @@ python3 -m http.server 8777            # abrir http://localhost:8777
 Para atualizar sozinho enquanto edita notas: `python3 build_graph.py --watch` (e recarregar a página).
 Outro vault: `python3 build_graph.py /caminho/do/vault`.
 
+O `graph.json` leva também o **nome do vault** (o duplo clique `obsidian://` precisa dele). O nome
+vem da variável de ambiente `VAULT_NAME`; sem ela, do nome da pasta. Assim o nome do vault não
+precisa estar no código.
+
 ## Interação
 
 - Clique numa estrela: câmera voa até ela, painel com tags, resumo, **cita →** (ciano) e **← citada por** (magenta).
@@ -36,6 +40,20 @@ Outro vault: `python3 build_graph.py /caminho/do/vault`.
 - Links para notas inexistentes viram nós cinza "(não criada)".
 
 `data/graph.json` contém trechos das notas: não publique a pasta.
+
+## No cluster (k3s)
+
+Este repositório é a fonte única do que roda no cluster: o `index.html` e o `build_graph.py`
+daqui viram ConfigMaps pelo kustomize da raiz, com hash no nome — então editar qualquer um
+deles já faz o pod rodar a versão nova, sem regerar nada na mão.
+
+```bash
+kubectl apply -k .      # ou Argo CD apontando para a raiz deste repo
+```
+
+O container `sync` (cliente headless do Obsidian Sync) vem da imagem do `Dockerfile.sync`,
+publicada em `ghcr.io/guimab/vault-galaxy-sync`. Valores específicos do cluster (nome do
+vault, Secret do Obsidian) e a operação do dia a dia estão em `deploy/README.md`.
 
 ## Stack
 
