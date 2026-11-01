@@ -10,7 +10,7 @@ O vault é lido em **modo somente leitura**.
 
 ```bash
 cd ~/vault-galaxy
-python3 build_graph.py                 # lê ~/Documents/bina_vault -> data/graph.json
+python3 build_graph.py /caminho/do/vault   # gera data/graph.json (ou defina VAULT_PATH)
 python3 -m http.server 8777            # abrir http://localhost:8777
 ```
 

@@ -130,7 +130,6 @@ import { forceSimulation, forceLink, forceManyBody, forceX, forceY, forceZ, forc
 
 const $ = (id) => document.getElementById(id);
 const PALETTE = ['#4cc9ff', '#ff4fd8', '#ffd23f', '#5cff9d', '#ff7a45', '#a78bfa', '#2ee6d6', '#ff5c7a', '#9dff4f', '#ffa8e2', '#7aa2ff'];
-const VAULT_NAME = 'bina_vault';
 
 // ---------- dados ----------
 const data = await (await fetch('data/graph.json?t=' + Date.now())).json();
@@ -523,7 +522,7 @@ renderer.domElement.addEventListener('pointerup', e => {
 renderer.domElement.addEventListener('dblclick', e => { const n = pick(e); if (n && !n.ghost) openObsidian(n); });
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const obsUrl = n => `obsidian://open?vault=${encodeURIComponent(data.vault || VAULT_NAME)}&file=${encodeURIComponent(n.id)}`;
+const obsUrl = n => `obsidian://open?vault=${encodeURIComponent(data.vault || '')}&file=${encodeURIComponent(n.id)}`;
 const openObsidian = n => { location.href = obsUrl(n); };
 
 let fly = null;

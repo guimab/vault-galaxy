@@ -8,8 +8,10 @@ Uso:
 import json, os, re, sys, time
 from pathlib import Path
 
-VAULT = Path(next((a for a in sys.argv[1:] if not a.startswith('--')),
-                  os.path.expanduser('~/Documents/bina_vault'))).expanduser()
+_arg = next((a for a in sys.argv[1:] if not a.startswith('--')), None) or os.environ.get('VAULT_PATH')
+if not _arg:
+    sys.exit('Informe o caminho do vault: python3 build_graph.py /caminho/do/vault  (ou defina VAULT_PATH)')
+VAULT = Path(_arg).expanduser()
 OUT = Path(__file__).parent / 'data' / 'graph.json'
 SKIP_DIRS = {'.obsidian', '.trash', '.git', 'node_modules'}
 
@@ -97,7 +99,7 @@ def build():
             links[key] = links.get(key, 0) + 1
 
     nodes.update(ghosts)
-    data = dict(vault=VAULT.name, generated=int(time.time()),
+    data = dict(generated=int(time.time()),
                 nodes=list(nodes.values()),
                 links=[dict(source=s, target=t, weight=w) for (s, t), w in links.items()])
     OUT.parent.mkdir(parents=True, exist_ok=True)
