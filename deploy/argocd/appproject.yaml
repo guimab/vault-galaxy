@@ -1,0 +1,21 @@
+# Projeto do Argo CD só para o vault-galaxy: libera o repo (público, sem
+# credencial) e o namespace de destino. O kustomize da raiz cria o Namespace,
+# então ele precisa entrar no whitelist de recursos de cluster.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: vault-galaxy
+  namespace: argocd
+spec:
+  description: vault-galaxy — site estático + espelho do vault Obsidian no cluster
+  sourceRepos:
+    - https://github.com/guimab/vault-galaxy.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: vault-galaxy
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

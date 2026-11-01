@@ -1,0 +1,26 @@
+# O cluster passa a acompanhar o repo: commit na main = deploy.
+# O que NÃO vem daqui e por isso nunca é podado: `vault-galaxy-env` (nome do
+# vault) e o Secret `obsidian-sync` — o Argo só remove o que ele mesmo gerencia.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vault-galaxy
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: vault-galaxy
+  source:
+    repoURL: https://github.com/guimab/vault-galaxy.git
+    targetRevision: main
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: vault-galaxy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - PrunePropagationPolicy=foreground
