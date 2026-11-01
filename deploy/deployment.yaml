@@ -33,7 +33,7 @@ spec:
             - {name: app-src, mountPath: /seed}
       containers:
         - name: sync
-          image: vault-galaxy-sync:0.0.14
+          image: ghcr.io/guimab/vault-galaxy-sync:0.0.14   # publicado pelo workflow .github/workflows/image.yaml
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c"]
           args:
