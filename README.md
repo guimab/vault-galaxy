@@ -41,19 +41,12 @@ precisa estar no código.
 
 `data/graph.json` contém trechos das notas: não publique a pasta.
 
-## No cluster (k3s)
+## Deploy
 
-Este repositório é a fonte única do que roda no cluster: o `index.html` e o `build_graph.py`
-daqui viram ConfigMaps pelo kustomize da raiz, com hash no nome — então editar qualquer um
-deles já faz o pod rodar a versão nova, sem regerar nada na mão.
-
-```bash
-kubectl apply -k .      # ou Argo CD apontando para a raiz deste repo
-```
-
-O container `sync` (cliente headless do Obsidian Sync) vem da imagem do `Dockerfile.sync`,
-publicada em `ghcr.io/guimab/vault-galaxy-sync`. Valores específicos do cluster (nome do
-vault, Secret do Obsidian) e a operação do dia a dia estão em `deploy/README.md`.
+Há manifestos de Kubernetes de exemplo em `deploy/` e o `Dockerfile.sync` empacota o cliente
+headless do Obsidian Sync (`obsidian-headless`) para rodar num servidor sem o app de desktop —
+útil, por exemplo, para espelhar o vault e servir este site a partir de um cluster. Nada disso é
+necessário para usar na sua máquina: os dois comandos da seção "Rodar" bastam.
 
 ## Stack
 

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-galaxy
+  namespace: vault-galaxy
+  labels: {app: vault-galaxy}
+spec:
+  type: ClusterIP
+  selector: {app: vault-galaxy}
+  ports:
+    - {name: http, port: 80, targetPort: http}

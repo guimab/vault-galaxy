@@ -6,7 +6,7 @@ resources:
   - deploy/namespace.yaml
   - deploy/pvc.yaml
   - deploy/deployment.yaml
-  - deploy/service-ingress.yaml
+  - deploy/service.yaml
 
 # O conteúdo dos arquivos vira ConfigMap com hash no nome: mudar o index.html
 # ou o build_graph.py já faz o pod rodar na versão nova, sem ninguém lembrar
