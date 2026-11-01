@@ -23,17 +23,15 @@ Ingress só de LAN:
 
 ## O que é específico do cluster (não está no repo)
 
-O repo é público, então dado pessoal não entra nele:
+O repo é público, então dado pessoal não entra nele. O que é do cluster vive em
+`Overnit/vault-galaxy-cluster` (privado), aplicado pela Application `vault-galaxy-cluster`:
 
-1. **Nome do vault** — ConfigMap `vault-galaxy-env`, criado uma vez e referenciado pela base:
-
-       kubectl -n vault-galaxy create configmap vault-galaxy-env --from-literal=VAULT_NAME=MEU_VAULT
-
-   (modelo em `examples/vault-galaxy-env.example.yaml`.) Sem ele o container `sync` não sobe.
+1. **Nome do vault** — ConfigMap `vault-galaxy-env` (modelo em
+   `examples/vault-galaxy-env.example.yaml`). Sem ele o container `sync` não sobe.
 
 2. **Credenciais do Obsidian Sync** — Secret `obsidian-sync` com as chaves `auth_token` e
-   `encryption_password`. O token sai do `ob login`; grave a senha E2E num arquivo seu e deixe
-   o kubectl ler dele:
+   `encryption_password`, criado fora do git (nunca por Argo CD). O token sai do `ob login`;
+   grave a senha E2E num arquivo seu e deixe o kubectl ler dele:
 
        docker run --rm -it -v /root/ob-login:/data/config \
          -e XDG_CONFIG_HOME=/data/config ghcr.io/guimab/vault-galaxy-sync:0.0.14 ob login
@@ -61,6 +59,23 @@ O `obsidian-headless` é a única peça que não é arquivo. Ao mudar `OB_VERSIO
 `Dockerfile.sync`, o workflow `.github/workflows/image.yaml` publica
 `ghcr.io/guimab/vault-galaxy-sync:<versão>` e o Deployment usa essa tag (ajuste-a junto).
 Sem registry no cluster, os nós puxam do GHCR.
+
+## Argo CD
+
+Duas Applications no projeto `vault-galaxy`, cada uma dona da sua parte:
+
+| Application | Fonte | Entrega |
+| --- | --- | --- |
+| `vault-galaxy` | repo público, path `.` | Namespace, PVC, Deployment, Service, Ingress e os ConfigMaps do site |
+| `vault-galaxy-cluster` | `Overnit/vault-galaxy-cluster` (privado) | ConfigMap `vault-galaxy-env` (nome do vault) |
+
+Ambas com sync automático (`prune` + `selfHeal`). Separadas de propósito: se o overlay privado
+fosse a única fonte, uma mudança no repo público só apareceria depois de um commit no overlay.
+O que o Argo não gerencia (Secret `obsidian-sync`) nunca é podado.
+
+Os manifestos das Applications ficam aqui em `argocd/` e são aplicados uma vez:
+
+    kubectl apply -f deploy/argocd/
 
 ## Operação
 

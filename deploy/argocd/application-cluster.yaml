@@ -1,0 +1,27 @@
+# Segunda Application: só os valores que não podem viver no repo público
+# (o nome do vault). Fica separada para o repo público continuar com deploy
+# instantâneo ao commitar — se o overlay fosse a única fonte, mudança no base
+# só apareceria depois de um commit aqui.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vault-galaxy-cluster
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: vault-galaxy
+  source:
+    repoURL: git@github.com:Overnit/vault-galaxy-cluster.git
+    targetRevision: main
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: vault-galaxy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - PrunePropagationPolicy=foreground

@@ -10,6 +10,8 @@ spec:
   description: vault-galaxy — site estático + espelho do vault Obsidian no cluster
   sourceRepos:
     - https://github.com/guimab/vault-galaxy.git
+    # Metade privada do deploy (nome do vault), com deploy key somente leitura.
+    - git@github.com:Overnit/vault-galaxy-cluster.git
   destinations:
     - server: https://kubernetes.default.svc
       namespace: vault-galaxy
