@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <title>Vault Galaxy</title>
 <!-- Deploy: este arquivo entra no cluster pelo kustomize da raiz (ConfigMap com hash
      no nome). Editar aqui, commitar e o Argo CD roda o pod na versão nova. -->
@@ -19,7 +19,9 @@
   #search { width:320px; padding:12px 14px; color:var(--txt); background:var(--panel); border:1px solid var(--line); border-radius:12px; outline:none; font-size:14px; }
   #search:focus { border-color:rgba(120,180,255,.6); box-shadow:0 0 0 3px rgba(90,150,255,.18); }
   #sugg { position:absolute; top:48px; left:0; width:420px; max-height:50vh; overflow:auto; display:none; padding:6px; }
-  #sugg div { padding:7px 10px; border-radius:8px; cursor:pointer; display:flex; gap:8px; align-items:center; }
+  #sugg div { padding:7px 10px; border-radius:8px; cursor:pointer; display:flex; gap:8px; align-items:center; white-space:nowrap; }
+  #sugg div .t { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  #sugg div small { flex:none; max-width:45%; overflow:hidden; text-overflow:ellipsis; }
   #sugg div:hover, #sugg div.on { background:rgba(120,160,255,.14); }
   .dot { width:9px; height:9px; border-radius:50%; flex:none; box-shadow:0 0 8px currentColor; }
   #legend { position:fixed; left:16px; bottom:16px; padding:12px; z-index:5; min-width:230px; }
@@ -82,6 +84,76 @@
   .row { display:flex; gap:8px; margin-top:12px; }
   .row .btn { flex:1; justify-content:center; font-size:12.5px; padding:7px; }
   #loading { position:fixed; inset:0; display:grid; place-items:center; z-index:10; background:var(--bg); color:var(--mut); letter-spacing:.2em; transition:opacity .6s; }
+
+  /* cabeçalho dos controles: botão de fechar próprio (no celular os controles são folha cheia) */
+  #cfgHead { display:flex; align-items:center; justify-content:space-between; margin:0 0 6px; }
+  #cfgHead h4 { margin:0; }
+  #cfgHead .close { position:static; width:44px; height:44px; font-size:24px; line-height:1; padding:0; }
+
+  /* ---------- telas de celular ---------- */
+  /* Vale por largura (retrato) ou por altura (deitado — o S23 Ultra deitado tem
+     412px de altura e o layout de desktop não cabe aí). O que muda: a busca divide
+     a linha com a marca em vez de ter 320px fixos, a legenda e as dicas viram
+     folhas inferiores (recolhidas por padrão), o painel da nota sobe como folha,
+     os controles tomam a tela, e nada mais sai da viewport. Alvos de toque >= 44px
+     e fonte 16px na busca (evita o zoom automático do iOS). */
+  @media (max-width: 700px), (max-height: 560px) {
+    :root { --st: env(safe-area-inset-top, 0px); --sb: env(safe-area-inset-bottom, 0px); }
+    #c { height: 100dvh; }
+
+    /* topo: marca compacta + busca flexível */
+    #top { top: calc(8px + var(--st)); left: 8px; right: 8px; gap: 8px; }
+    #brand { flex: none; padding: 9px 11px; font-size: 12px; letter-spacing: .03em; }
+    #brand small { font-size: 10.5px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #searchBox { flex: 1 1 auto; min-width: 0; }
+    #search { width: 100%; font-size: 16px; padding: 11px 12px; }
+    #sugg { top: 46px; width: 100%; max-height: 42dvh; }
+    #sugg div { padding: 11px 10px; font-size: 14px; }
+    #cfgBtn { top: calc(8px + var(--st)); right: 8px; width: 42px; height: 42px; font-size: 18px; }
+
+    /* legenda: folha inferior, recolhida por padrão (o JS decide isso) */
+    #legend { left: 8px; right: 8px; bottom: calc(8px + var(--sb)); min-width: 0; max-height: 42dvh; overflow: auto;
+              overscroll-behavior: contain; touch-action: manipulation; padding: 10px 12px; }
+    #legend.min { left: 8px; right: auto; padding: 12px 14px; }
+    #legend h4 { padding: 2px 0; }
+    .lg { padding: 12px 8px; font-size: 14px; }
+    #opts { font-size: 14px; }
+    #opts label { padding: 8px 0; }
+    #opts input { width: 22px; height: 22px; margin: 0; flex: none; }
+
+    /* dicas: pílula recolhida; aberta ocupa a largura e empurra a legenda fora */
+    #help { left: 8px; right: 8px; bottom: calc(8px + var(--sb)); font-size: 12.5px; line-height: 1.5; touch-action: manipulation; }
+    #help.min { left: auto; padding: 12px 14px; }
+    body.helpOpen #legend { display: none; }
+    body.legendOpen #help { display: none; }
+
+    /* painel da nota: folha inferior, com rolagem interna */
+    #panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 72dvh;
+             padding: 16px 16px calc(16px + var(--sb)); border-radius: 16px 16px 0 0;
+             transform: translateY(105%); transition: transform .3s cubic-bezier(.2,.8,.2,1); touch-action: pan-y; }
+    #panel.open { transform: none; }
+    #panel h2 { font-size: 18px; }
+    #panel .close { top: 6px; right: 6px; width: 44px; height: 44px; font-size: 24px; line-height: 1; }
+    #panel .lst div { padding: 12px 8px; font-size: 14px; }
+    #panel .tag { padding: 7px 11px; }
+    #panel .btn { padding: 12px 14px; }
+    body.panelOpen #legend, body.panelOpen #help, body.panelOpen #cfgBtn { display: none; }
+
+    /* controles: folha alta, com fechar próprio */
+    #cfg { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 88dvh;
+           padding: 14px 16px calc(16px + var(--sb)); border-radius: 16px 16px 0 0; }
+    #cfg .sl input[type=range] { height: 32px; }
+    #cfg .cl input[type=color] { width: 56px; height: 34px; }
+    #cfg .row .btn { padding: 12px; }
+    #cfgHead { position: sticky; top: -14px; background:var(--panel); padding:6px 0 4px; z-index:1; }
+    body.cfgOpen #panel { right: 0; top: auto; max-height: 72dvh; }
+    body.cfgOpen #panel:not(.open) { transform: translateY(105%); }
+    body.cfgOpen #legend, body.cfgOpen #help { display: none; }
+
+    /* rótulos 3D proporcionais à tela (15px num viewport de 412px é enorme) */
+    .lbl { font-size: 11px; }
+    .lbl.grp { font-size: 12px; letter-spacing: .1em; }
+  }
 </style>
 </head>
 <body>
@@ -91,7 +163,7 @@
 <div id="top">
   <div id="brand" class="glass">VAULT GALAXY<small id="meta">—</small></div>
   <div id="searchBox">
-    <input id="search" placeholder="Buscar nota ou #tag…  ( / )" autocomplete="off">
+    <input id="search" placeholder="Buscar nota ou #tag…  ( / )" autocomplete="off" inputmode="search" enterkeyhint="search" autocapitalize="off" autocorrect="off" spellcheck="false">
     <div id="sugg" class="glass"></div>
   </div>
 </div>
@@ -504,7 +576,12 @@ function pick(e) {
   }
   return best;
 }
-renderer.domElement.addEventListener('pointermove', e => {
+// Sem mouse de verdade (celular, tablet) não existe hover: o balão de prévia sai de
+// cena e as dicas falam de toque. Um híbrido (notebook com tela sensível) entra pela
+// media query, que é mais específica.
+const hasTouch = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+const canHover = !hasTouch || matchMedia('(hover: hover) and (pointer: fine)').matches;
+if (canHover) renderer.domElement.addEventListener('pointermove', e => {
   lastMove = performance.now();
   const n = pick(e);
   if (n !== state.hover) { state.hover = n; if (!state.selected) state.focusSet = computeFocus(); }
@@ -515,10 +592,20 @@ renderer.domElement.addEventListener('pointermove', e => {
     renderer.domElement.style.cursor = 'pointer';
   } else { tip.style.display = 'none'; renderer.domElement.style.cursor = ''; }
 });
-renderer.domElement.addEventListener('pointerdown', e => { downAt = performance.now(); downXY = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerdown', e => { lastMove = performance.now(); downAt = performance.now(); downXY = [e.clientX, e.clientY]; });
+let lastTap = 0, lastTapXY = [0, 0];
 renderer.domElement.addEventListener('pointerup', e => {
   if (performance.now() - downAt > 300 || Math.hypot(e.clientX - downXY[0], e.clientY - downXY[1]) > 5) return;
+  lastMove = performance.now();
   const n = pick(e);
+  // no celular não existe duplo clique: dois toques seguidos no mesmo ponto abrem no Obsidian
+  if (!canHover) {
+    const now = performance.now();
+    if (n && !n.ghost && now - lastTap < 350 && Math.hypot(e.clientX - lastTapXY[0], e.clientY - lastTapXY[1]) < 28) {
+      lastTap = 0; openObsidian(n); return;
+    }
+    lastTap = now; lastTapXY = [e.clientX, e.clientY];
+  }
   n ? select(n) : clearSel(false);
 });
 renderer.domElement.addEventListener('dblclick', e => { const n = pick(e); if (n && !n.ghost) openObsidian(n); });
@@ -551,7 +638,7 @@ function pinGroup(g) {
     <div class="stat"><b>${inner}</b><span>links internos</span></div><div class="stat"><b>${outer}</b><span>links externos</span></div></div>
     <h4>Subpastas</h4><div class="tags">${Object.entries(sub).sort((a, b) => b[1] - a[1]).map(([s, c]) => `<span class="tag">${esc(s)} · ${c}</span>`).join('')}</div>
     <h4>Notas (mais conectadas primeiro)</h4><div class="lst">${list.map(n => item(n, '•')).join('')}</div>`;
-  $('panel').classList.add('open'); bindPanel(); flyGroup(g);
+  $('panel').classList.add('open'); document.body.classList.add('panelOpen'); bindPanel(); flyGroup(g);
 }
 function flyGroup(g) { const o = groupObjs[g]; fly = { t: 0, fromP: camera.position.clone(), toP: o.center.clone().add(camera.position.clone().sub(controls.target).setY(0).normalize().multiplyScalar(420)).add(new THREE.Vector3(0, 120, 0)), fromT: controls.target.clone(), toT: o.center.clone() }; }
 function select(n) {
@@ -564,14 +651,14 @@ function clearSel(home = true) {
   const had = state.selected || state.tagFilter || state.groupPin;
   state.selected = null; state.tagFilter = null; state.groupPin = null; state.groupHover = null;
   if (home && had) flyHome(); state.focusSet = computeFocus();
-  $('panel').classList.remove('open');
+  $('panel').classList.remove('open'); document.body.classList.remove('panelOpen');
 }
 function filterTag(tag) {
   state.selected = null; state.tagFilter = tag; state.groupPin = null; state.focusSet = computeFocus();
   const list = nodes.filter(n => n.tags.includes(tag));
   $('pBody').innerHTML = `<h4>Tag</h4><h2>#${esc(tag)}</h2><div class="path">${list.length} notas</div>
     <div class="lst">${list.map(n => item(n, '•')).join('')}</div>`;
-  $('panel').classList.add('open'); bindPanel();
+  $('panel').classList.add('open'); document.body.classList.add('panelOpen'); bindPanel();
 }
 const item = (n, arrow) => `<div data-id="${esc(n.id)}"><span class="arrow">${arrow}</span><span class="dot" style="color:${groupColor[n.group]};background:${groupColor[n.group]}"></span>${esc(n.title)}</div>`;
 function renderPanel(n) {
@@ -591,7 +678,7 @@ function renderPanel(n) {
     ${!n.ghost ? `<p><a class="btn" href="${obsUrl(n)}">Abrir no Obsidian ↗</a></p>` : ''}
     ${outs.length ? `<h4 style="color:#38e1ff">Cita (${outs.length})</h4><div class="lst">${outs.map(o => item(o, '→')).join('')}</div>` : ''}
     ${ins.length ? `<h4 style="color:#ff4fd8">Citada por (${ins.length})</h4><div class="lst">${ins.map(o => item(o, '←')).join('')}</div>` : ''}`;
-  $('panel').classList.add('open'); bindPanel();
+  $('panel').classList.add('open'); document.body.classList.add('panelOpen'); bindPanel();
 }
 function bindPanel() {
   $('pBody').querySelectorAll('[data-id]').forEach(el => el.onclick = () => select(byId.get(el.dataset.id)));
@@ -641,7 +728,7 @@ function drawSug() {
   sug.style.display = sRes.length ? 'block' : 'none';
   sug.innerHTML = sRes.map((r, i) => r.tag
     ? `<div class="${i === sIdx ? 'on' : ''}" data-i="${i}">#${esc(r.tag)} <small style="color:var(--mut);margin-left:auto">${nodes.filter(n => n.tags.includes(r.tag)).length}</small></div>`
-    : `<div class="${i === sIdx ? 'on' : ''}" data-i="${i}"><span class="dot" style="color:${groupColor[r.group]};background:${groupColor[r.group]}"></span>${esc(r.title)}<small style="color:var(--mut);margin-left:auto">${esc(r.group)}</small></div>`).join('');
+    : `<div class="${i === sIdx ? 'on' : ''}" data-i="${i}"><span class="dot" style="color:${groupColor[r.group]};background:${groupColor[r.group]}"></span><span class="t">${esc(r.title)}</span><small style="color:var(--mut);margin-left:auto">${esc(r.group)}</small></div>`).join('');
   sug.querySelectorAll('[data-i]').forEach(el => el.onclick = () => choose(sRes[+el.dataset.i]));
 }
 function choose(r) { sug.style.display = 'none'; sIn.value = ''; sIn.blur(); r.tag ? filterTag(r.tag) : select(r); }
@@ -656,10 +743,13 @@ addEventListener('keydown', e => {
   if (e.key === '/') { e.preventDefault(); sIn.focus(); }
   if (e.key === 'Escape') clearSel();
 });
-addEventListener('resize', () => {
+const fitViewport = () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); labelRenderer.setSize(innerWidth, innerHeight);
-});
+};
+addEventListener('resize', fitViewport);
+// no celular a barra do navegador e o teclado mudam a área visível: refaz o enquadramento
+if (window.visualViewport) visualViewport.addEventListener('resize', fitViewport);
 
 // ---------- painel de controles ----------
 function moveGroups() {
@@ -702,7 +792,7 @@ function applyColors() {
   for (const g of groupNames) { groupObjs[g].neb.material.color.set(groupColor[g]); groupObjs[g].lbl.element.style.color = groupColor[g]; }
 }
 function renderCfg() {
-  $('cfg').innerHTML = SLIDERS.map(s => s.length === 1 ? `<h4>${s[0]}</h4>` :
+  $('cfg').innerHTML = `<div id="cfgHead"><h4>Controles</h4><button class="close" id="cClose" title="Fechar (G)">×</button></div>` + SLIDERS.map(s => s.length === 1 ? `<h4>${s[0]}</h4>` :
     `<label class="sl"><span>${s[1]}</span><output id="o_${s[0]}">${cfg[s[0]]}</output>
      <input type="range" data-k="${s[0]}" data-phys="${s[5] ? 1 : 0}" min="${s[2]}" max="${s[3]}" step="${s[4]}" value="${cfg[s[0]]}"></label>`).join('') +
     `<h4>Cores</h4>
@@ -724,6 +814,7 @@ function renderCfg() {
   $('cfg').querySelectorAll('input[data-g]').forEach(el => el.oninput = () => {
     groupColor[el.dataset.g] = cfg.groupColors[el.dataset.g] = el.value; saveCfg(); applyColors(); renderLegend(); });
   $('cSunOn').onchange = e => { cfg.sunOn = e.target.checked ? 1 : 0; saveCfg(); applySun(); };
+  $('cClose').onclick = () => document.body.classList.remove('cfgOpen');
   $('cReheat').onclick = () => sim.alpha(0.8);
   $('cReset').onclick = () => { Object.assign(cfg, CFG_DEF, { groupColors: {} }); Object.assign(groupColor, DEFAULT_GROUP_COLOR); applyColors(); renderLegend(); localStorage.removeItem('vg.cfg'); recolor(); applyForces(); sim.alpha(0.6); renderCfg(); };
 }
@@ -731,8 +822,21 @@ renderCfg();
 $('cfgBtn').onclick = () => document.body.classList.toggle('cfgOpen');
 addEventListener('keydown', e => { if (e.key === 'g' && document.activeElement.tagName !== 'INPUT') document.body.classList.toggle('cfgOpen'); });
 // esconder/mostrar legenda e dicas (lembra a escolha)
+// No celular as duas começam recolhidas (viram pílulas no rodapé) e, quando uma
+// abre, a outra sai da frente — senão as duas folhas se cobrem.
+const isSmall = () => innerWidth <= 700 || innerHeight <= 560;
 const uiMin = JSON.parse(localStorage.getItem('vg.ui') || '{}');
-const applyUi = () => { $('legend').classList.toggle('min', !!uiMin.leg); $('legTog').textContent = uiMin.leg ? '▸' : '▾'; $('help').classList.toggle('min', !!uiMin.help); localStorage.setItem('vg.ui', JSON.stringify(uiMin)); };
+if (isSmall()) { if (!('leg' in uiMin)) uiMin.leg = true; if (!('help' in uiMin)) uiMin.help = true; }
+const applyUi = () => {
+  $('legend').classList.toggle('min', !!uiMin.leg); $('legTog').textContent = uiMin.leg ? '▸' : '▾';
+  $('help').classList.toggle('min', !!uiMin.help);
+  document.body.classList.toggle('legendOpen', isSmall() && !uiMin.leg);
+  document.body.classList.toggle('helpOpen', isSmall() && !uiMin.help);
+  localStorage.setItem('vg.ui', JSON.stringify(uiMin));
+};
+$('help').querySelector('.txt').innerHTML = (canHover
+  ? '<b>Clique</b> foca a nota · <b>arrastar</b> gira · <b>scroll</b> zoom · <b>Esc</b> limpa · <b>/</b> busca · <b>L</b> pastas · <b>H</b> dicas · <b>G</b> controles'
+  : '<b>Toque</b> foca a nota · <b>arrastar</b> gira · <b>pinça</b> dá zoom · <b>2 toques</b> abre no Obsidian · <b>L</b> pastas') + ' <button class="tog" id="helpTog">×</button>';
 const togUi = k => { uiMin[k] = !uiMin[k]; applyUi(); };
 $('legHead').onclick = e => { e.stopPropagation(); togUi('leg'); };
 $('help').onclick = e => { if (uiMin.help || e.target.id === 'helpTog') togUi('help'); };
